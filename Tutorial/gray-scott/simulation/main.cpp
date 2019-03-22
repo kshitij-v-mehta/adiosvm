@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <mpi.h>
 #include <vector>
 
@@ -35,10 +36,26 @@ void print_simulator_settings(const GrayScott &s)
               << s.size_z << std::endl;
 }
 
+double start_timer(MPI_Comm comm)
+{
+    MPI_Barrier(comm);
+    return MPI_Wtime();
+}
+
+void end_timer(double timer_start, int rank, MPI_Comm comm, std::string profile_target, std::string app_name, std::ofstream &my_timer_log)
+{
+    double timer_end_my = MPI_Wtime();
+    MPI_Barrier(comm);
+    double timer_end_barrier = MPI_Wtime();
+    my_timer_log << app_name << " PE " << std::to_string(rank) << " time for " << profile_target << ": my: " << std::to_string(timer_end_my - timer_start) << ", barrier: " << std::to_string(timer_end_barrier - timer_start) << std::endl;
+}
+
 int main(int argc, char **argv)
 {
     MPI_Init(&argc, &argv);
     int rank, procs, wrank;
+    double timestamp_t1;
+    std::ofstream my_timer_log;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &wrank);
 
@@ -70,6 +87,14 @@ int main(int argc, char **argv)
     GrayScott sim(settings, comm);
 
     sim.init();
+    std::string my_io_log_filename = argv[0];
+    my_io_log_filename += "_timer_log_PE_" + std::to_string(rank) + ".txt";
+    my_timer_log.open(my_io_log_filename, std::ios::trunc);
+    if (!my_timer_log.is_open()) {
+        std::cout << "FATAL ERROR: Could not open timer log " << my_io_log_filename << ". Quitting." << std::endl;
+        MPI_Finalize();
+        return -1;
+    }
 
     adios2::ADIOS adios(settings.adios_config, comm, adios2::DebugON);
 
@@ -102,10 +127,16 @@ int main(int argc, char **argv)
 
     adios2::Variable<int> varStep = io.DefineVariable<int>("step");
 
+    timestamp_t1 = start_timer(comm);
     adios2::Engine writer = io.Open(settings.output, adios2::Mode::Write);
+    end_timer(timestamp_t1, rank, comm, "adios2 open", argv[0], my_timer_log);
+    
 
     for (int i = 0; i < settings.steps; i++) {
+        my_timer_log << "Step " << std::to_string(i) << std::endl;
+        timestamp_t1 = start_timer(comm);
         sim.iterate();
+        end_timer(timestamp_t1, rank, comm, "sim.iterate", argv[0], my_timer_log);
 
         if (i % settings.plotgap == 0) {
             if (rank == 0) {
@@ -113,18 +144,26 @@ int main(int argc, char **argv)
                           << " writing output step     " << i/settings.plotgap 
                           << std::endl;
             }
+            timestamp_t1 = start_timer(comm);
             std::vector<double> u = sim.u_noghost();
             std::vector<double> v = sim.v_noghost();
+            end_timer(timestamp_t1, rank, comm, "noghost copy", argv[0], my_timer_log);
 
+            timestamp_t1 = start_timer(comm);
             writer.BeginStep();
             writer.Put<int>(varStep, &i);
             writer.Put<double>(varU, u.data());
             writer.Put<double>(varV, v.data());
             writer.EndStep();
+            end_timer(timestamp_t1, rank, comm, "begin- and end-step", argv[0], my_timer_log);
         }
     }
 
+    timestamp_t1 = start_timer(comm);
     writer.Close();
+    end_timer(timestamp_t1, rank, comm, "adios2 close", argv[0], my_timer_log);
 
+    my_timer_log.close();
     MPI_Finalize();
 }
+
