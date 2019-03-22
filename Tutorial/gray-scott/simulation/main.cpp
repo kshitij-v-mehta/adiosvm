@@ -56,6 +56,7 @@ int main(int argc, char **argv)
     int rank, procs, wrank;
     double timestamp_t1;
     std::ofstream my_timer_log;
+    std::string prog_name = "gray_scott";
 
     MPI_Comm_rank(MPI_COMM_WORLD, &wrank);
 
@@ -87,7 +88,7 @@ int main(int argc, char **argv)
     GrayScott sim(settings, comm);
 
     sim.init();
-    std::string my_io_log_filename = argv[0];
+    std::string my_io_log_filename = prog_name;
     my_io_log_filename += "_timer_log_PE_" + std::to_string(rank) + ".txt";
     my_timer_log.open(my_io_log_filename, std::ios::trunc);
     if (!my_timer_log.is_open()) {
@@ -129,14 +130,14 @@ int main(int argc, char **argv)
 
     timestamp_t1 = start_timer(comm);
     adios2::Engine writer = io.Open(settings.output, adios2::Mode::Write);
-    end_timer(timestamp_t1, rank, comm, "adios2 open", argv[0], my_timer_log);
+    end_timer(timestamp_t1, rank, comm, "adios2 open", prog_name, my_timer_log);
     
 
     for (int i = 0; i < settings.steps; i++) {
         my_timer_log << "Step " << std::to_string(i) << std::endl;
         timestamp_t1 = start_timer(comm);
         sim.iterate();
-        end_timer(timestamp_t1, rank, comm, "sim.iterate", argv[0], my_timer_log);
+        end_timer(timestamp_t1, rank, comm, "sim.iterate", prog_name, my_timer_log);
 
         if (i % settings.plotgap == 0) {
             if (rank == 0) {
@@ -147,7 +148,7 @@ int main(int argc, char **argv)
             timestamp_t1 = start_timer(comm);
             std::vector<double> u = sim.u_noghost();
             std::vector<double> v = sim.v_noghost();
-            end_timer(timestamp_t1, rank, comm, "noghost copy", argv[0], my_timer_log);
+            end_timer(timestamp_t1, rank, comm, "noghost copy", prog_name, my_timer_log);
 
             timestamp_t1 = start_timer(comm);
             writer.BeginStep();
@@ -155,13 +156,13 @@ int main(int argc, char **argv)
             writer.Put<double>(varU, u.data());
             writer.Put<double>(varV, v.data());
             writer.EndStep();
-            end_timer(timestamp_t1, rank, comm, "begin- and end-step", argv[0], my_timer_log);
+            end_timer(timestamp_t1, rank, comm, "begin- and end-step", prog_name, my_timer_log);
         }
     }
 
     timestamp_t1 = start_timer(comm);
     writer.Close();
-    end_timer(timestamp_t1, rank, comm, "adios2 close", argv[0], my_timer_log);
+    end_timer(timestamp_t1, rank, comm, "adios2 close", prog_name, my_timer_log);
 
     my_timer_log.close();
     MPI_Finalize();

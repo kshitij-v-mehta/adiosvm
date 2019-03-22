@@ -136,6 +136,7 @@ int main(int argc, char *argv[])
     int rank, comm_size, wrank;
     double timestamp_t1;
     std::ofstream my_timer_log;
+    std::string prog_name = "pdf_calc";
 
     MPI_Comm_rank(MPI_COMM_WORLD, &wrank);
 
@@ -177,7 +178,7 @@ int main(int argc, char *argv[])
             write_inputvars = true;
     }
 
-    std::string my_io_log_filename = argv[0];
+    std::string my_io_log_filename = prog_name;
     my_io_log_filename += "_timer_log_PE_" + std::to_string(rank) + ".txt";
     my_timer_log.open(my_io_log_filename, std::ios::trunc);
     if (!my_timer_log.is_open()) {
@@ -226,11 +227,11 @@ int main(int argc, char *argv[])
     // Engines for reading and writing
     timestamp_t1 = start_timer(comm);
     adios2::Engine reader = reader_io.Open(in_filename, adios2::Mode::Read, comm);
-    end_timer(timestamp_t1, rank, comm, "reader adios2 open", argv[0], my_timer_log);
+    end_timer(timestamp_t1, rank, comm, "reader adios2 open", prog_name, my_timer_log);
     
     timestamp_t1 = start_timer(comm);
     adios2::Engine writer = writer_io.Open(out_filename, adios2::Mode::Write, comm);
-    end_timer(timestamp_t1, rank, comm, "writer adios2 open", argv[0], my_timer_log);
+    end_timer(timestamp_t1, rank, comm, "writer adios2 open", prog_name, my_timer_log);
 
     bool shouldIWrite = (!rank || reader_io.EngineType() == "HDF5");
 
@@ -344,7 +345,7 @@ int main(int argc, char *argv[])
 
         // End adios2 step
         reader.EndStep();
-        end_timer(timestamp_t1, rank, comm, "reader begin- and end-step", argv[0], my_timer_log);
+        end_timer(timestamp_t1, rank, comm, "reader begin- and end-step", prog_name, my_timer_log);
 
         if (!rank)
         {
@@ -367,13 +368,13 @@ int main(int argc, char *argv[])
         std::vector<double> pdf_u;
         std::vector<double> bins_u;
         compute_pdf(u, shape, start1, count1, nbins, minmax_u.first, minmax_u.second, pdf_u, bins_u);
-        end_timer(timestamp_t1, rank, comm, "compute pdf u", argv[0], my_timer_log);
+        end_timer(timestamp_t1, rank, comm, "compute pdf u", prog_name, my_timer_log);
 
         timestamp_t1 = start_timer(comm);
         std::vector<double> pdf_v;
         std::vector<double> bins_v;
         compute_pdf(v, shape, start1, count1, nbins, minmax_v.first, minmax_v.second, pdf_v, bins_v);
-        end_timer(timestamp_t1, rank, comm, "compute pdf v", argv[0], my_timer_log);
+        end_timer(timestamp_t1, rank, comm, "compute pdf v", prog_name, my_timer_log);
 
         // write U, V, and their norms out
         timestamp_t1 = start_timer(comm);
@@ -391,7 +392,7 @@ int main(int argc, char *argv[])
             writer.Put<double> (var_v_out, v.data());
         }
         writer.EndStep ();
-        end_timer(timestamp_t1, rank, comm, "writer begin- and end-step", argv[0], my_timer_log);
+        end_timer(timestamp_t1, rank, comm, "writer begin- and end-step", prog_name, my_timer_log);
 
         ++stepAnalysis;
     }
@@ -399,11 +400,11 @@ int main(int argc, char *argv[])
     // cleanup
     timestamp_t1 = start_timer(comm);
     reader.Close();
-    end_timer(timestamp_t1, rank, comm, "reader adios close", argv[0], my_timer_log);
+    end_timer(timestamp_t1, rank, comm, "reader adios close", prog_name, my_timer_log);
 
     timestamp_t1 = start_timer(comm);
     writer.Close();
-    end_timer(timestamp_t1, rank, comm, "writer adios close", argv[0], my_timer_log);
+    end_timer(timestamp_t1, rank, comm, "writer adios close", prog_name, my_timer_log);
     MPI_Finalize();
     return 0;
 }
