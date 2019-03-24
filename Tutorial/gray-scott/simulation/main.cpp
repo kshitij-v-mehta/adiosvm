@@ -171,6 +171,7 @@ int main(int argc, char **argv)
 
     my_timer_log.close();
 
+    std::cout << prog_name << " PE " << rank << " total execution time before barrier: " << MPI_Wtime() - timestamp_start_app << std::endl;
     MPI_Barrier(comm);
     if (rank == 0) std::cout << prog_name << " total execution time: " << MPI_Wtime() - timestamp_start_app << std::endl;
     MPI_Finalize();
