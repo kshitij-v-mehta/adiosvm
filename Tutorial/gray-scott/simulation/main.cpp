@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 {
     MPI_Init(&argc, &argv);
     int rank, procs, wrank;
-    double timestamp_t1;
+    double timestamp_t1, timestamp_start_app, timestamp_step_start, timestamp_prev_step;
     std::ofstream my_timer_log;
     std::string prog_name = "gray_scott";
 
@@ -66,6 +66,8 @@ int main(int argc, char **argv)
 
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &procs);
+
+    timestamp_start_app = MPI_Wtime();
 
     if (argc < 2) {
         if (rank == 0) {
@@ -132,9 +134,12 @@ int main(int argc, char **argv)
     adios2::Engine writer = io.Open(settings.output, adios2::Mode::Write);
     end_timer(timestamp_t1, rank, comm, "adios2 open", prog_name, my_timer_log);
     
-
     for (int i = 0; i < settings.steps; i++) {
-        my_timer_log << "Step " << std::to_string(i) << std::endl;
+        timestamp_step_start = MPI_Wtime();
+        if (i == 0) timestamp_prev_step = timestamp_step_start;
+        my_timer_log << prog_name << " ------ Step " << std::to_string(i) << " gap after previous: " << timestamp_step_start - timestamp_prev_step << ", gap from app start: " << timestamp_step_start - timestamp_start_app << " ------" << std::endl;
+        timestamp_prev_step = timestamp_step_start;
+
         timestamp_t1 = start_timer(comm);
         sim.iterate();
         end_timer(timestamp_t1, rank, comm, "sim.iterate", prog_name, my_timer_log);
@@ -165,6 +170,9 @@ int main(int argc, char **argv)
     end_timer(timestamp_t1, rank, comm, "adios2 close", prog_name, my_timer_log);
 
     my_timer_log.close();
+
+    MPI_Barrier(comm);
+    if (rank == 0) std::cout << prog_name << " total execution time: " << MPI_Wtime() - timestamp_start_app << std::endl;
     MPI_Finalize();
 }
 

@@ -137,6 +137,7 @@ int main(int argc, char *argv[])
     double timestamp_t1;
     std::ofstream my_timer_log;
     std::string prog_name = "pdf_calc";
+    double timestamp_app_start, timestamp_step_current, timestamp_step_prev;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &wrank);
 
@@ -156,6 +157,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    timestamp_app_start = MPI_Wtime();
     std::string in_filename;
     std::string out_filename;
     size_t nbins = 1000;
@@ -237,10 +239,12 @@ int main(int argc, char *argv[])
 
     // read data per timestep
     int stepAnalysis = 0;
+    timestamp_step_prev = -1;
     while(true) {
 
         // Begin step
         timestamp_t1 = start_timer(comm);
+
         adios2::StepStatus read_status = reader.BeginStep(adios2::StepMode::NextAvailable, 10.0f);
         
         if (read_status == adios2::StepStatus::NotReady)
@@ -257,7 +261,10 @@ int main(int argc, char *argv[])
         }
  
         int stepSimOut = reader.CurrentStep();
-        my_timer_log << "Current Step " << stepSimOut << std::endl;
+        timestamp_step_current = MPI_Wtime();
+        if (timestamp_step_prev == -1) timestamp_step_prev = timestamp_step_current;
+        my_timer_log << prog_name << " ------ Current Step " << stepSimOut << ", after wait " << MPI_Wtime() - timestamp_t1 << ", gap from previous step " << timestamp_step_current - timestamp_step_prev << ", gap from app start: " << timestamp_step_current - timestamp_app_start << std::endl;
+        timestamp_step_prev = timestamp_step_current;
 
         // Inquire variable and set the selection at the first step only
         // This assumes that the variable dimensions do not change across timesteps
@@ -405,6 +412,9 @@ int main(int argc, char *argv[])
     timestamp_t1 = start_timer(comm);
     writer.Close();
     end_timer(timestamp_t1, rank, comm, "writer adios close", prog_name, my_timer_log);
+
+    MPI_Barrier(comm);
+    if (rank == 0) std::cout << prog_name << " total execution time: " << MPI_Wtime() - timestamp_app_start << std::endl;
     MPI_Finalize();
     return 0;
 }
