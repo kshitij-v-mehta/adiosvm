@@ -32,7 +32,7 @@ def PlotPDF(pdf, bins, args, start, count, step, fontsize):
     # Plotting part
     displaysec = args.displaysec
     gs = gridspec.GridSpec(1, 1)
-    fig = plt.figure(1, figsize=(5,5))
+    fig = plt.figure(1, figsize=(8,8))
     ax = fig.add_subplot(gs[0, 0])
     localSliceIdx = count[0] // 2
     globalSliceIdx = start[0] + localSliceIdx
@@ -42,7 +42,7 @@ def PlotPDF(pdf, bins, args, start, count, step, fontsize):
     ax.set_title("{0}, slice {1}, step {2}".format(args.varname, globalSliceIdx, step), fontsize=fontsize)
     ax.set_xlabel("bins", fontsize=fontsize)
     ax.set_ylabel("count", fontsize=fontsize)
-    plt.tick_params(labelsize = fontsize-8)
+    plt.tick_params(labelsize = fontsize-4)
     plt.ion()
     if (args.outfile == "screen"):
         plt.show()
@@ -64,7 +64,7 @@ def read_data(args, fr, start_coord, size_dims):
 
 if __name__ == "__main__":
     # fontsize on plot
-    fontsize = 16
+    fontsize = 24
 
     args = SetupArgs()
     # print(args)
@@ -74,7 +74,10 @@ if __name__ == "__main__":
     myrank = mpi.rank['app']
     
     # Read the data from this object
-    fr = adios2.open(args.instream, "r", mpi.comm_app,"adios2.xml", "PDFAnalysisOutput")
+    if not args.nompi:
+        fr = adios2.open(args.instream, "r", mpi.comm_app, "adios2.xml", "PDFAnalysisOutput")
+    else:
+        fr = adios2.open(args.instream, "r", "adios2.xml", "PDFAnalysisOutput")
 
 
     # Read through the steps, one at a time
@@ -109,6 +112,8 @@ if __name__ == "__main__":
 
         PlotPDF (pdf, bins, args, start, count, sim_step[0], fontsize)
         plot_step = plot_step + 1 
+        if not args.nompi:
+            mpi.comm_app.Barrier() 
         
        
     fr.close()

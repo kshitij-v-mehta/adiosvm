@@ -13,18 +13,27 @@ class GrayScott
 public:
     // Dimension of process grid
     size_t npx, npy, npz;
-    // Coordinate of this rank in processor grid
+    // Coordinate of this rank in process grid
     size_t px, py, pz;
     // Dimension of local array
     size_t size_x, size_y, size_z;
+    // Offset of local array in the global array
+    size_t offset_x, offset_y, offset_z;
 
     GrayScott(const Settings &settings, MPI_Comm comm);
     ~GrayScott();
 
     void init();
     void iterate();
+
+    const std::vector<double> &u_ghost() const;
+    const std::vector<double> &v_ghost() const;
+
     std::vector<double> u_noghost() const;
     std::vector<double> v_noghost() const;
+
+    void u_noghost(double *u_no_ghost) const;
+    void v_noghost(double *v_no_ghost) const;
 
 protected:
     Settings settings;
@@ -73,44 +82,39 @@ protected:
     // Return a copy of data with ghosts removed
     std::vector<double> data_noghost(const std::vector<double> &data) const;
 
+    // pointer version
+    void data_noghost(const std::vector<double> &data, double *no_ghost) const;
+
     // Check if point is included in my subdomain
     inline bool is_inside(int x, int y, int z) const
     {
-        int sx = size_x * px;
-        int sy = size_y * py;
-        int sz = size_z * pz;
-
-        int ex = sx + size_x;
-        int ey = sy + size_y;
-        int ez = sz + size_z;
-
-        if (x < sx) return false;
-        if (x >= ex) return false;
-        if (y < sy) return false;
-        if (y >= ey) return false;
-        if (z < sz) return false;
-        if (z >= ez) return false;
+        if (x < offset_x) return false;
+        if (x >= offset_x + size_x) return false;
+        if (y < offset_y) return false;
+        if (y >= offset_y + size_y) return false;
+        if (z < offset_z) return false;
+        if (z >= offset_z + size_z) return false;
 
         return true;
     }
     // Convert global coordinate to local index
     inline int g2i(int gx, int gy, int gz) const
     {
-        int sx = size_x * px;
-        int sy = size_y * py;
-        int sz = size_z * pz;
-
-        int x = gx - sx;
-        int y = gy - sy;
-        int z = gz - sz;
+        int x = gx - offset_x;
+        int y = gy - offset_y;
+        int z = gz - offset_z;
 
         return l2i(x + 1, y + 1, z + 1);
     }
     // Convert local coordinate to local index
     inline int l2i(int x, int y, int z) const
     {
-        return z + y * (size_z + 2) + x * (size_y + 2) * (size_z + 2);
+        return x + y * (size_x + 2) + z * (size_x + 2) * (size_y + 2);
     }
+
+private:
+    void data_no_ghost_common(const std::vector<double> &data,
+                              double *data_no_ghost) const;
 };
 
 #endif

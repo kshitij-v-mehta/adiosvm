@@ -39,11 +39,11 @@ def Plot2D(plane_direction, data, args, fullshape, step, fontsize):
     # Plotting part
     displaysec = args.displaysec
     gs = gridspec.GridSpec(1, 1)
-    fig = plt.figure(1, figsize=(5,5))
+    fig = plt.figure(1, figsize=(8,8))
     ax = fig.add_subplot(gs[0, 0])
     colorax = ax.imshow(data, origin='lower', interpolation='quadric',extent=[0, fullshape[1], 0, fullshape[0]], cmap=plt.get_cmap('gist_ncar'))
     cbar = fig.colorbar(colorax, orientation='horizontal')
-    cbar.ax.tick_params(labelsize=fontsize-8)
+    cbar.ax.tick_params(labelsize=fontsize-4)
 
     for i in range(args.ny):
         y = fullshape[0] / args.ny * i
@@ -53,7 +53,7 @@ def Plot2D(plane_direction, data, args, fullshape, step, fontsize):
         x = fullshape[1] / args.nx * i
         ax.plot([x, x], [0, fullshape[0]], color='black')
 
-    ax.set_title("{0} plane, step {1}".format(plane_direction, step), fontsize=fontsize)
+    ax.set_title("{0}, {1} plane, step {2}".format(args.varname, plane_direction, step), fontsize=fontsize)
     ax.set_xlabel(plane_direction[0], fontsize=fontsize)
     ax.set_ylabel(plane_direction[1], fontsize=fontsize)
     plt.tick_params(labelsize = fontsize-8)
@@ -92,7 +92,7 @@ def read_data(args, fr, start_coord, size_dims):
 
 if __name__ == "__main__":
     # fontsize on plot
-    fontsize = 16
+    fontsize = 24
 
     args = SetupArgs()
 #    print(args)

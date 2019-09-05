@@ -27,24 +27,16 @@
             <Field name="defaultOrientation" type="int">0</Field>
         </Object>
         <Field name="postWhenShown" type="bool">false</Field>
-        <Object name="Output">
-            <Field name="x" type="int">2236</Field>
-            <Field name="y" type="int">1743</Field>
-            <Field name="width" type="int">300</Field>
-            <Field name="height" type="int">250</Field>
-            <Field name="visible" type="bool">false</Field>
-            <Field name="posted" type="bool">false</Field>
-        </Object>
         <Object name="MainWin">
-            <Field name="x" type="int">0</Field>
-            <Field name="y" type="int">26</Field>
+            <Field name="x" type="int">-1</Field>
+            <Field name="y" type="int">0</Field>
             <Field name="width" type="int">398</Field>
-            <Field name="height" type="int">1139</Field>
-            <Field name="SPLITTER_VALUES_V2" type="floatVector">0 0.6976284 0.298419 </Field>
+            <Field name="height" type="int">1938</Field>
+            <Field name="SPLITTER_VALUES_V2" type="floatVector">0 0.5438984 0.4538929 </Field>
         </Object>
         <Object name="Contour plot attributes">
-            <Field name="x" type="int">2038</Field>
-            <Field name="y" type="int">104</Field>
+            <Field name="x" type="int">2374</Field>
+            <Field name="y" type="int">1052</Field>
             <Field name="width" type="int">498</Field>
             <Field name="height" type="int">832</Field>
             <Field name="visible" type="bool">false</Field>

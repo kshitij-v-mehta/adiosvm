@@ -4,6 +4,7 @@
     <!-- example engines 
 
         <engine type="BPFile">
+        <engine type="BP4">
         <engine type="HDF5">
         <engine type="InSituMPI">
         <engine type="SST">
@@ -28,7 +29,8 @@
         ==========================================-->
 
     <io name="SimulationOutput">
-        <engine type="BPFile">
+        <engine type="BP4">
+            <parameter key="OpenTimeoutSecs" value="10.0"/>
         </engine>
     </io>
 
@@ -41,7 +43,8 @@
         =========================================-->
     
     <io name="AnalysisOutput">
-        <engine type="BPFile">
+        <engine type="BP4">
+            <parameter key="OpenTimeoutSecs" value="10.0"/>
         </engine>
     </io>
 
@@ -54,7 +57,8 @@
         =============================================-->
     
     <io name="VizInput">
-        <engine type="BPFile">
+        <engine type="BP4">
+            <parameter key="OpenTimeoutSecs" value="10.0"/>
         </engine>
     </io>
 
