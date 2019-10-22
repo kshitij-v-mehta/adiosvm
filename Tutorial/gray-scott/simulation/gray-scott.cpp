@@ -4,7 +4,7 @@
 
 #include <mpi.h>
 #include <random>
-#include <vector>
+#include <iostream>
 
 #include "gray-scott.h"
 
@@ -14,7 +14,9 @@ GrayScott::GrayScott(const Settings &settings, MPI_Comm comm)
 {
 }
 
-GrayScott::~GrayScott() {}
+GrayScott::~GrayScott() {
+
+}
 
 void GrayScott::init()
 {
@@ -27,17 +29,25 @@ void GrayScott::iterate()
     exchange(u, v);
     calc(u, v, u2, v2);
 
-    u.swap(u2);
-    v.swap(v2);
+    // Swap u and u2
+    double *tmp;
+    tmp = u;
+    u = u2;
+    u2 = tmp;
+
+    // Swap v and v2
+    tmp = v;
+    v = v2;
+    v2 = tmp;
 }
 
-const std::vector<double> &GrayScott::u_ghost() const { return u; }
+double* GrayScott::u_ghost() const { return u; }
 
-const std::vector<double> &GrayScott::v_ghost() const { return v; }
+double* GrayScott::v_ghost() const { return v; }
 
-std::vector<double> GrayScott::u_noghost() const { return data_noghost(u); }
+double* GrayScott::u_noghost() const { return data_noghost(u); }
 
-std::vector<double> GrayScott::v_noghost() const { return data_noghost(v); }
+double* GrayScott::v_noghost() const { return data_noghost(v); }
 
 void GrayScott::u_noghost(double *u_no_ghost) const
 {
@@ -49,29 +59,60 @@ void GrayScott::v_noghost(double *v_no_ghost) const
     data_noghost(v, v_no_ghost);
 }
 
-std::vector<double>
-GrayScott::data_noghost(const std::vector<double> &data) const
+double*
+GrayScott::data_noghost(const double *data) const
 {
-    std::vector<double> buf(size_x * size_y * size_z);
-    data_no_ghost_common(data, buf.data());
+    double *buf = (double*) malloc (size_x * size_y * size_z * sizeof(double));
+    if (NULL == buf) {
+        std::cerr << "Could not allocate buf in data_noghost" << std::endl;
+        MPI_Abort(comm, -1);
+    }
+    data_no_ghost_common(data, buf);
     return buf;
 }
 
-void GrayScott::data_noghost(const std::vector<double> &data,
+void GrayScott::data_noghost(const double *data,
                              double *data_no_ghost) const
 {
     data_no_ghost_common(data, data_no_ghost);
 }
 
+void GrayScott::data_no_ghost_common(const double *data,
+                                     double *data_no_ghost) const
+{
+    for (int z = 1; z < size_z + 1; z++) {
+        for (int y = 1; y < size_y + 1; y++) {
+            for (int x = 1; x < size_x + 1; x++) {
+                data_no_ghost[(x - 1) + (y - 1) * size_x +
+                              (z - 1) * size_x * size_y] = data[l2i(x, y, z)];
+            }
+        }
+    }
+}
+
 void GrayScott::init_field()
 {
     const int V = (size_x + 2) * (size_y + 2) * (size_z + 2);
-    u.resize(V, 1.0);
-    v.resize(V, 0.0);
-    u2.resize(V, 0.0);
-    v2.resize(V, 0.0);
+    u = (double*) malloc (V * sizeof(double));
+    v = (double*) malloc (V * sizeof(double));
+    u2 = (double*) malloc (V * sizeof(double));
+    v2 = (double*) malloc (V * sizeof(double));
+
+    if ( (NULL == u) || (NULL == v) || (NULL == u2) || (NULL == v2) ) {
+        std::cerr << "Could not allocate arrays" << std::endl;
+        MPI_Abort(comm, -1);
+    }
+
+#pragma acc enter data create(u[0:V], v[0:V], u2[0:V], v2[0:V]) copyin(settings)
+    for (int i=0; i<V; i++) {
+        u[i] = 1.0;
+        v[i] = 0.0;
+        u2[i] = 0.0;
+        v2[i] = 0.0;
+    }
 
     const int d = 6;
+#pragma acc parallel loop independent collapse(3) present(u,v)
     for (int z = settings.L / 2 - d; z < settings.L / 2 + d; z++) {
         for (int y = settings.L / 2 - d; y < settings.L / 2 + d; y++) {
             for (int x = settings.L / 2 - d; x < settings.L / 2 + d; x++) {
@@ -84,18 +125,21 @@ void GrayScott::init_field()
     }
 }
 
+#pragma acc routine
 double GrayScott::calcU(double tu, double tv) const
 {
     return -tu * tv * tv + settings.F * (1.0 - tu);
 }
 
+#pragma acc routine
 double GrayScott::calcV(double tu, double tv) const
 {
     return tu * tv * tv - (settings.F + settings.k) * tv;
 }
 
+#pragma acc routine
 double GrayScott::laplacian(int x, int y, int z,
-                            const std::vector<double> &s) const
+                            double *s) const
 {
     double ts = 0.0;
     ts += s[l2i(x - 1, y, z)];
@@ -109,9 +153,9 @@ double GrayScott::laplacian(int x, int y, int z,
     return ts / 6.0;
 }
 
-void GrayScott::calc(const std::vector<double> &u, const std::vector<double> &v,
-                     std::vector<double> &u2, std::vector<double> &v2)
+void GrayScott::calc(double *u, double *v, double *u2, double *v2)
 {
+#pragma acc parallel loop independent collapse(3) present(u,v,u2,v2,settings)
     for (int z = 1; z < size_z + 1; z++) {
         for (int y = 1; y < size_y + 1; y++) {
             for (int x = 1; x < size_x + 1; x++) {
@@ -122,12 +166,14 @@ void GrayScott::calc(const std::vector<double> &u, const std::vector<double> &v,
                 dv = settings.Dv * laplacian(x, y, z, v);
                 du += calcU(u[i], v[i]);
                 dv += calcV(u[i], v[i]);
-                du += settings.noise * uniform_dist(mt_gen);
+                //du += settings.noise * uniform_dist(mt_gen);
+                du += settings.noise * 0.2;
                 u2[i] = u[i] + du * settings.dt;
                 v2[i] = v[i] + dv * settings.dt;
             }
         }
     }
+#pragma acc update host(u,v,u2,v2)
 }
 
 void GrayScott::init_mpi()
@@ -187,7 +233,7 @@ void GrayScott::init_mpi()
     MPI_Type_commit(&yz_face_type);
 }
 
-void GrayScott::exchange_xy(std::vector<double> &local_data) const
+void GrayScott::exchange_xy(double *local_data) const
 {
     MPI_Status st;
 
@@ -201,7 +247,7 @@ void GrayScott::exchange_xy(std::vector<double> &local_data) const
                  cart_comm, &st);
 }
 
-void GrayScott::exchange_xz(std::vector<double> &local_data) const
+void GrayScott::exchange_xz(double *local_data) const
 {
     MPI_Status st;
 
@@ -215,7 +261,7 @@ void GrayScott::exchange_xz(std::vector<double> &local_data) const
                  cart_comm, &st);
 }
 
-void GrayScott::exchange_yz(std::vector<double> &local_data) const
+void GrayScott::exchange_yz(double *local_data) const
 {
     MPI_Status st;
 
@@ -229,7 +275,7 @@ void GrayScott::exchange_yz(std::vector<double> &local_data) const
                  cart_comm, &st);
 }
 
-void GrayScott::exchange(std::vector<double> &u, std::vector<double> &v) const
+void GrayScott::exchange(double *u, double *v) const
 {
     exchange_xy(u);
     exchange_xz(u);
@@ -240,15 +286,3 @@ void GrayScott::exchange(std::vector<double> &u, std::vector<double> &v) const
     exchange_yz(v);
 }
 
-void GrayScott::data_no_ghost_common(const std::vector<double> &data,
-                                     double *data_no_ghost) const
-{
-    for (int z = 1; z < size_z + 1; z++) {
-        for (int y = 1; y < size_y + 1; y++) {
-            for (int x = 1; x < size_x + 1; x++) {
-                data_no_ghost[(x - 1) + (y - 1) * size_x +
-                              (z - 1) * size_x * size_y] = data[l2i(x, y, z)];
-            }
-        }
-    }
-}

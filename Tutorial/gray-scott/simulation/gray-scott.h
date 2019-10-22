@@ -2,7 +2,6 @@
 #define __GRAY_SCOTT_H__
 
 #include <random>
-#include <vector>
 
 #include <mpi.h>
 
@@ -26,19 +25,19 @@ public:
     void init();
     void iterate();
 
-    const std::vector<double> &u_ghost() const;
-    const std::vector<double> &v_ghost() const;
+    double* u_ghost() const;
+    double* v_ghost() const;
 
-    std::vector<double> u_noghost() const;
-    std::vector<double> v_noghost() const;
-
+    double* u_noghost() const;
+    double* v_noghost() const;
+    
     void u_noghost(double *u_no_ghost) const;
     void v_noghost(double *v_no_ghost) const;
 
 protected:
     Settings settings;
 
-    std::vector<double> u, v, u2, v2;
+    double *u, *v, *u2, *v2;
 
     int rank, procs;
     int west, east, up, down, north, south;
@@ -60,30 +59,27 @@ protected:
     void init_field();
 
     // Progess simulation for one timestep
-    void calc(const std::vector<double> &u, const std::vector<double> &v,
-              std::vector<double> &u2, std::vector<double> &v2);
+    void calc(double *u, double *v, double *u2, double *v2);
     // Compute reaction term for U
     double calcU(double tu, double tv) const;
     // Compute reaction term for V
     double calcV(double tu, double tv) const;
     // Compute laplacian of field s at (ix, iy, iz)
     double laplacian(int ix, int iy, int iz,
-                     const std::vector<double> &s) const;
+                     double *s) const;
 
     // Exchange faces with neighbors
-    void exchange(std::vector<double> &u, std::vector<double> &v) const;
+    void exchange (double *u, double *v) const;
     // Exchange XY faces with north/south
-    void exchange_xy(std::vector<double> &local_data) const;
+    void exchange_xy (double *local_data) const;
     // Exchange XZ faces with up/down
-    void exchange_xz(std::vector<double> &local_data) const;
+    void exchange_xz (double *local_data) const;
     // Exchange YZ faces with west/east
-    void exchange_yz(std::vector<double> &local_data) const;
+    void exchange_yz (double *local_data) const;
 
     // Return a copy of data with ghosts removed
-    std::vector<double> data_noghost(const std::vector<double> &data) const;
-
-    // pointer version
-    void data_noghost(const std::vector<double> &data, double *no_ghost) const;
+    double* data_noghost (const double *data) const;
+    void data_noghost (const double *data, double *no_ghost) const;
 
     // Check if point is included in my subdomain
     inline bool is_inside(int x, int y, int z) const
@@ -113,7 +109,7 @@ protected:
     }
 
 private:
-    void data_no_ghost_common(const std::vector<double> &data,
+    void data_no_ghost_common(const double *data,
                               double *data_no_ghost) const;
 };
 

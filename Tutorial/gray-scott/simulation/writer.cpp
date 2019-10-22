@@ -80,13 +80,13 @@ void Writer::open(const std::string &fname)
 void Writer::write(int step, const GrayScott &sim)
 {
     if (settings.adios_memory_selection) {
-        const std::vector<double> &u = sim.u_ghost();
-        const std::vector<double> &v = sim.v_ghost();
+        const double *u = sim.u_ghost();
+        const double *v = sim.v_ghost();
 
         writer.BeginStep();
         writer.Put<int>(var_step, &step);
-        writer.Put<double>(var_u, u.data());
-        writer.Put<double>(var_v, v.data());
+        writer.Put<double>(var_u, u);
+        writer.Put<double>(var_v, v);
         writer.EndStep();
     } else if (settings.adios_span) {
         writer.BeginStep();
@@ -103,13 +103,13 @@ void Writer::write(int step, const GrayScott &sim)
 
         writer.EndStep();
     } else {
-        std::vector<double> u = sim.u_noghost();
-        std::vector<double> v = sim.v_noghost();
+        double *u = sim.u_noghost();
+        double *v = sim.v_noghost();
 
         writer.BeginStep();
         writer.Put<int>(var_step, &step);
-        writer.Put<double>(var_u, u.data());
-        writer.Put<double>(var_v, v.data());
+        writer.Put<double>(var_u, u);
+        writer.Put<double>(var_v, v);
         writer.EndStep();
     }
 }
