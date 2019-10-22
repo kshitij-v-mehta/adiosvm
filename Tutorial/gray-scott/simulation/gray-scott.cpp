@@ -8,6 +8,18 @@
 
 #include "gray-scott.h"
 
+#ifdef _OPENACC
+#include <cuda.h>
+#include <curand.h>
+
+#define CUDA_CALL(x) do { if((x)!=cudaSuccess) { \
+    printf("Error at %s:%d\n",__FILE__,__LINE__);\
+    return EXIT_FAILURE;}} while(0)
+#define CURAND_CALL(x) do { if((x)!=CURAND_STATUS_SUCCESS) { \
+    printf("Error at %s:%d\n",__FILE__,__LINE__);\
+    return EXIT_FAILURE;}} while(0)
+#endif
+
 GrayScott::GrayScott(const Settings &settings, MPI_Comm comm)
     : settings(settings), comm(comm), rand_dev(), mt_gen(rand_dev()),
       uniform_dist(-1.0, 1.0)
@@ -22,6 +34,11 @@ void GrayScott::init()
 {
     init_mpi();
     init_field();
+
+#ifdef _OPENACC
+    //curand_init((unsigned long long)clock(), 0, 0, &cuRand_state);
+    curand_init((unsigned long long)MPI_Wtime(), 0, 0, &cuRand_state);
+#endif
 }
 
 void GrayScott::iterate()
@@ -103,10 +120,6 @@ void GrayScott::init_field()
         MPI_Abort(comm, -1);
     }
 
-    puts("Here");
-
-//#pragma acc enter data copyin(u[0:V], v[0:V], u2[0:V], v2[0:V]) copyin(settings)
-
 #pragma acc parallel loop independent
     for (int i=0; i<V; i++) {
         u[i] = 1.0;
@@ -170,8 +183,11 @@ void GrayScott::calc(double *u, double *v, double *u2, double *v2)
                 dv = settings.Dv * laplacian(x, y, z, v);
                 du += calcU(u[i], v[i]);
                 dv += calcV(u[i], v[i]);
-                //du += settings.noise * uniform_dist(mt_gen);
-                du += settings.noise * 0.2;
+#ifdef _OPENACC
+                du += settings.noise * curand_uniform_double(&cuRand_state);
+#else
+                du += settings.noise * uniform_dist(mt_gen);
+#endif
                 u2[i] = u[i] + du * settings.dt;
                 v2[i] = v[i] + dv * settings.dt;
             }

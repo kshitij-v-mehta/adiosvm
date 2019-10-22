@@ -7,6 +7,12 @@
 
 #include "settings.h"
 
+#ifdef _OPENACC
+#include <cuda.h>
+#include <curand.h>
+#include <curand_kernel.h>
+#endif
+
 class GrayScott
 {
 public:
@@ -22,6 +28,10 @@ public:
     size_t V;
     // Offset of local array in the global array
     size_t offset_x, offset_y, offset_z;
+
+#ifdef _OPENACC
+    curandState cuRand_state;
+#endif
 
     GrayScott(const Settings &settings, MPI_Comm comm);
     ~GrayScott();
