@@ -16,6 +16,8 @@ public:
     size_t px, py, pz;
     // Dimension of local array
     size_t size_x, size_y, size_z;
+    // Size of the u and v arrays
+    size_t V;
     // Offset of local array in the global array
     size_t offset_x, offset_y, offset_z;
 

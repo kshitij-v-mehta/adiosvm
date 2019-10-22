@@ -92,7 +92,7 @@ void GrayScott::data_no_ghost_common(const double *data,
 
 void GrayScott::init_field()
 {
-    const int V = (size_x + 2) * (size_y + 2) * (size_z + 2);
+    V = (size_x + 2) * (size_y + 2) * (size_z + 2);
     u = (double*) malloc (V * sizeof(double));
     v = (double*) malloc (V * sizeof(double));
     u2 = (double*) malloc (V * sizeof(double));
@@ -103,7 +103,11 @@ void GrayScott::init_field()
         MPI_Abort(comm, -1);
     }
 
-#pragma acc enter data create(u[0:V], v[0:V], u2[0:V], v2[0:V]) copyin(settings)
+    puts("Here");
+
+//#pragma acc enter data copyin(u[0:V], v[0:V], u2[0:V], v2[0:V]) copyin(settings)
+
+#pragma acc parallel loop independent
     for (int i=0; i<V; i++) {
         u[i] = 1.0;
         v[i] = 0.0;
@@ -112,7 +116,7 @@ void GrayScott::init_field()
     }
 
     const int d = 6;
-#pragma acc parallel loop independent collapse(3) present(u,v)
+#pragma acc parallel loop independent collapse(3)
     for (int z = settings.L / 2 - d; z < settings.L / 2 + d; z++) {
         for (int y = settings.L / 2 - d; y < settings.L / 2 + d; y++) {
             for (int x = settings.L / 2 - d; x < settings.L / 2 + d; x++) {
@@ -155,7 +159,7 @@ double GrayScott::laplacian(int x, int y, int z,
 
 void GrayScott::calc(double *u, double *v, double *u2, double *v2)
 {
-#pragma acc parallel loop independent collapse(3) present(u,v,u2,v2,settings)
+#pragma acc parallel loop independent collapse(3)
     for (int z = 1; z < size_z + 1; z++) {
         for (int y = 1; y < size_y + 1; y++) {
             for (int x = 1; x < size_x + 1; x++) {
@@ -173,7 +177,7 @@ void GrayScott::calc(double *u, double *v, double *u2, double *v2)
             }
         }
     }
-#pragma acc update host(u,v,u2,v2)
+#pragma acc update host(u[0:V], v[0:V], u2[0:V], v2[0:V])
 }
 
 void GrayScott::init_mpi()

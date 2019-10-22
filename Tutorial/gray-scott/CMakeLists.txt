@@ -20,6 +20,9 @@ endif()
 # We are not using the C++ API of MPI, this will stop the compiler look for it
 add_definitions(-DOMPI_SKIP_MPICXX -DMPICH_SKIP_MPICXX)
 
+add_definitions(-acc -fast -Minfo=accel -fPIC -g -ta=tesla:managed CUDA_HOME=/sw/summit/cuda/10.1.168/)
+SET(CMAKE_EXE_LINKER_FLAGS "-acc -ta=tesla:managed CUDA_HOME=/sw/summit/cuda/10.1.168/")
+
 add_executable(gray-scott
   simulation/main.cpp
   simulation/gray-scott.cpp
