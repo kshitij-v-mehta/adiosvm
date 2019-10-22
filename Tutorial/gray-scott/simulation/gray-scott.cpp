@@ -177,7 +177,6 @@ void GrayScott::calc(double *u, double *v, double *u2, double *v2)
             }
         }
     }
-#pragma acc update host(u[0:V], v[0:V], u2[0:V], v2[0:V])
 }
 
 void GrayScott::init_mpi()

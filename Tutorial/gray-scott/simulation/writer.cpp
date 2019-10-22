@@ -88,6 +88,9 @@ void Writer::write(int step, const GrayScott &sim)
         writer.Put<double>(var_u, u);
         writer.Put<double>(var_v, v);
         writer.EndStep();
+
+        free((void*)u);
+        free((void*)v);
     } else if (settings.adios_span) {
         writer.BeginStep();
 
@@ -111,6 +114,9 @@ void Writer::write(int step, const GrayScott &sim)
         writer.Put<double>(var_u, u);
         writer.Put<double>(var_v, v);
         writer.EndStep();
+
+        free((void*)u);
+        free((void*)v);
     }
 }
 

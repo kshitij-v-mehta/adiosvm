@@ -44,6 +44,8 @@ int main(int argc, char **argv)
 {
     MPI_Init(&argc, &argv);
     int rank, procs, wrank;
+    double *u, *v, *u2, *v2;
+    size_t V;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &wrank);
 
@@ -107,6 +109,13 @@ int main(int argc, char **argv)
             sim.iterate();
             i++;
         }
+
+        u = sim.u;
+        v = sim.v;
+        u2 = sim.u2;
+        v2 = sim.v2;
+        V = sim.V;   
+#pragma acc update host(u[0:V], v[0:V], u2[0:V], v2[0:V])
 
 #ifdef ENABLE_TIMERS
         double time_compute = timer_compute.stop();

@@ -16,6 +16,8 @@ public:
     size_t px, py, pz;
     // Dimension of local array
     size_t size_x, size_y, size_z;
+    // The main arrays
+    double *u, *v, *u2, *v2;
     // Size of the u and v arrays
     size_t V;
     // Offset of local array in the global array
@@ -38,8 +40,6 @@ public:
 
 protected:
     Settings settings;
-
-    double *u, *v, *u2, *v2;
 
     int rank, procs;
     int west, east, up, down, north, south;
