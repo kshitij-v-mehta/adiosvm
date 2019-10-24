@@ -9,15 +9,8 @@
 #include "gray-scott.h"
 
 #ifdef _OPENACC
-#include <cuda.h>
-#include <curand.h>
-
-#define CUDA_CALL(x) do { if((x)!=cudaSuccess) { \
-    printf("Error at %s:%d\n",__FILE__,__LINE__);\
-    return EXIT_FAILURE;}} while(0)
-#define CURAND_CALL(x) do { if((x)!=CURAND_STATUS_SUCCESS) { \
-    printf("Error at %s:%d\n",__FILE__,__LINE__);\
-    return EXIT_FAILURE;}} while(0)
+#include <openacc.h>
+#include "random_gen.h"
 #endif
 
 GrayScott::GrayScott(const Settings &settings, MPI_Comm comm)
@@ -27,18 +20,27 @@ GrayScott::GrayScott(const Settings &settings, MPI_Comm comm)
 }
 
 GrayScott::~GrayScott() {
-
+#ifdef _OPENACC
+    curand_cleanup(gen);
+    acc_free(rand_vals);
+#endif
 }
 
 void GrayScott::init()
 {
+    int retval;
     init_mpi();
-    init_field();
-
 #ifdef _OPENACC
-    //curand_init((unsigned long long)clock(), 0, 0, &cuRand_state);
-    curand_init((unsigned long long)MPI_Wtime(), 0, 0, &cuRand_state);
+    rand_vals = (double*) acc_malloc( (size_x+2) * sizeof(double));
+    if (NULL == rand_vals) {
+        std::cerr << "Could not allocate rand_vals on the GPU. Exiting." << std::endl;
+        MPI_Abort(comm, -1);
+    }
+    retval = curand_init_gen(rand_vals, (size_x+2), &gen);
+    if (0 != retval) MPI_Abort(comm, -1);
 #endif
+ 
+    init_field();
 }
 
 void GrayScott::iterate()
@@ -120,13 +122,26 @@ void GrayScott::init_field()
         MPI_Abort(comm, -1);
     }
 
-#pragma acc parallel loop independent
+    puts("here\n");
+    fflush(stdout);
+    int retval = gen_curand_values(rand_vals, (size_x+2), gen);
+
+    puts("generating rand vals again\n");
+    fflush(stdout);
+    retval = gen_curand_values(rand_vals, (size_x+2), gen);
+
+    printf("Starting first kernel\n");
+    fflush(stdout);
+
+#pragma acc kernels loop independent
     for (int i=0; i<V; i++) {
         u[i] = 1.0;
         v[i] = 0.0;
         u2[i] = 0.0;
         v2[i] = 0.0;
     }
+    puts("after\n");
+    fflush(stdout);
 
     const int d = 6;
 #pragma acc parallel loop independent collapse(3)
@@ -172,7 +187,11 @@ double GrayScott::laplacian(int x, int y, int z,
 
 void GrayScott::calc(double *u, double *v, double *u2, double *v2)
 {
-#pragma acc parallel loop independent collapse(3)
+    int retval;
+    retval = gen_curand_values(rand_vals, (size_x+2), gen);
+    if (0 != retval) MPI_Abort(comm, -1);
+
+#pragma acc kernels loop independent collapse(3) deviceptr(rand_vals)
     for (int z = 1; z < size_z + 1; z++) {
         for (int y = 1; y < size_y + 1; y++) {
             for (int x = 1; x < size_x + 1; x++) {
@@ -184,7 +203,7 @@ void GrayScott::calc(double *u, double *v, double *u2, double *v2)
                 du += calcU(u[i], v[i]);
                 dv += calcV(u[i], v[i]);
 #ifdef _OPENACC
-                du += settings.noise * curand_uniform_double(&cuRand_state);
+                du += settings.noise * rand_vals[x];
 #else
                 du += settings.noise * uniform_dist(mt_gen);
 #endif

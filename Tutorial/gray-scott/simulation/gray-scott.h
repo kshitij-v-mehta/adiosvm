@@ -10,7 +10,6 @@
 #ifdef _OPENACC
 #include <cuda.h>
 #include <curand.h>
-#include <curand_kernel.h>
 #endif
 
 class GrayScott
@@ -30,7 +29,8 @@ public:
     size_t offset_x, offset_y, offset_z;
 
 #ifdef _OPENACC
-    curandState cuRand_state;
+    double *rand_vals;
+    curandGenerator_t gen;
 #endif
 
     GrayScott(const Settings &settings, MPI_Comm comm);
