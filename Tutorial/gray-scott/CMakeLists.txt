@@ -29,8 +29,8 @@ SET(CMAKE_EXE_LINKER_FLAGS "-acc -fast -g -Mcuda -ta=tesla:managed -lcurand")
 
 add_executable(gray-scott
   simulation/main.cpp
-  simulation/random_gen.h
-  simulation/random_gen.cu
+#  simulation/random_gen.h
+#  simulation/random_gen.cu
   simulation/gray-scott.cpp
   simulation/settings.cpp
   simulation/writer.cpp

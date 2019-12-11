@@ -203,7 +203,8 @@ void GrayScott::calc(double *u, double *v, double *u2, double *v2)
                 du += calcU(u[i], v[i]);
                 dv += calcV(u[i], v[i]);
 #ifdef _OPENACC
-                du += settings.noise * rand_vals[x];
+                //du += settings.noise * rand_vals[x];
+                du += settings.noise * 1.01;
 #else
                 du += settings.noise * uniform_dist(mt_gen);
 #endif
