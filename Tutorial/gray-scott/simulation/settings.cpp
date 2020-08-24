@@ -15,6 +15,7 @@ void to_json(nlohmann::json &j, const Settings &s)
                        {"Dv", s.Dv},
                        {"noise", s.noise},
                        {"output", s.output},
+                       {"write_data", s.write_data},
                        {"checkpoint", s.checkpoint},
                        {"checkpoint_freq", s.checkpoint_freq},
                        {"checkpoint_output", s.checkpoint_output},
@@ -36,6 +37,7 @@ void from_json(const nlohmann::json &j, Settings &s)
     j.at("Dv").get_to(s.Dv);
     j.at("noise").get_to(s.noise);
     j.at("output").get_to(s.output);
+    j.at("write_data").get_to(s.write_data);
     j.at("checkpoint").get_to(s.checkpoint);
     j.at("checkpoint_freq").get_to(s.checkpoint_freq);
     j.at("checkpoint_output").get_to(s.checkpoint_output);
@@ -57,6 +59,7 @@ Settings::Settings()
     Dv = 0.1;
     noise = 0.0;
     output = "foo.bp";
+    write_data = true;
     checkpoint = false;
     checkpoint_freq = 2000;
     checkpoint_output = "gs_ckpt.bp";

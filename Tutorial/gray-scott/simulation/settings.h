@@ -14,6 +14,7 @@ struct Settings {
     double Dv;
     double noise;
     std::string output;
+    bool write_data;
     bool checkpoint;
     int checkpoint_freq;
     std::string checkpoint_output;

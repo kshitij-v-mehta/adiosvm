@@ -22,6 +22,7 @@ void print_settings(const Settings &s)
               << std::endl;
     std::cout << "steps:            " << s.steps << std::endl;
     std::cout << "plotgap:          " << s.plotgap << std::endl;
+    std::cout << "write_data        " << s.write_data << std::endl;
     std::cout << "F:                " << s.F << std::endl;
     std::cout << "k:                " << s.k << std::endl;
     std::cout << "dt:               " << s.dt << std::endl;
@@ -74,7 +75,7 @@ int main(int argc, char **argv)
     Writer writer_main(settings, sim, io_main);
     Writer writer_ckpt(settings, sim, io_ckpt);
 
-    writer_main.open(settings.output);
+    if (settings.write_data) writer_main.open(settings.output);
 
     if (rank == 0) {
         print_io_settings(io_main);
@@ -120,7 +121,7 @@ int main(int argc, char **argv)
                       << std::endl;
         }
 
-        writer_main.write(i, sim);
+       if (settings.write_data) writer_main.write(i, sim);
 
         if (settings.checkpoint &&
             i % (settings.plotgap * settings.checkpoint_freq) == 0) {
@@ -139,7 +140,7 @@ int main(int argc, char **argv)
 #endif
     }
 
-    writer_main.close();
+    if (settings.write_data) writer_main.close();
 
 #ifdef ENABLE_TIMERS
     log << "total\t" << timer_total.elapsed() << "\t" << timer_compute.elapsed()
