@@ -55,6 +55,8 @@ int main(int argc, char **argv)
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &procs);
 
+    double start_time, cur_time;
+
     if (argc < 2) {
         if (rank == 0) {
             std::cerr << "Too few arguments" << std::endl;
@@ -97,6 +99,7 @@ int main(int argc, char **argv)
     log << "step\ttotal_gs\tcompute_gs\twrite_gs" << std::endl;
 #endif
 
+    start_time = MPI_Wtime();
     for (int i = 0; i < settings.steps;) {
 #ifdef ENABLE_TIMERS
         MPI_Barrier(comm);
@@ -116,7 +119,9 @@ int main(int argc, char **argv)
 #endif
 
         if (rank == 0) {
-            std::cout << "Simulation at step " << i
+            cur_time = MPI_Wtime() - start_time;
+            std::cout << "[" << cur_time << "] \t"
+                      << "Simulation at step " << i
                       << " writing output step     " << i / settings.plotgap
                       << std::endl;
         }
