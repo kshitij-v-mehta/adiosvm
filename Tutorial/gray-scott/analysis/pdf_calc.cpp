@@ -123,12 +123,8 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    std::string in_filename;
-    std::string out_filename;
     size_t nbins = 1000;
     bool write_inputvars = false;
-    in_filename = argv[1];
-    out_filename = argv[2];
 
     if (argc >= 4) {
         int value = std::stoi(argv[3]);
@@ -145,6 +141,7 @@ int main(int argc, char *argv[])
     std::size_t u_local_size, v_local_size;
 
     bool firstStep = true;
+    int fileid = 0;
 
     std::vector<std::size_t> shape;
 
@@ -165,19 +162,45 @@ int main(int argc, char *argv[])
     adios2::Variable<int> var_step_out;
     adios2::Variable<double> var_u_out, var_v_out;
 
-    {
-        // adios2 io object and engine init
-        adios2::ADIOS ad("adios2.xml", comm, adios2::DebugON);
+    // adios2 io object and engine init
+    adios2::ADIOS ad(comm, adios2::DebugON);
+
+    while (true) {
+
+        // Get the fileid from the simulation root and send it to your gang.
+        // It is guaranteed that global rank 0 is root of the simulation.
+        MPI_Status status;
+        if(rank == 0) {
+            MPI_Recv(&fileid, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+            std::cout << "PC received fileid " << fileid << std::endl;
+        }
+        MPI_Bcast(&fileid, 1, MPI_INT, 0, comm);
+
+        if (fileid == -1)
+            break;
+
+        //Create the io name
+        std::ostringstream _r_io_name;
+        _r_io_name << "readerIO-" << fileid;
+        std::string r_io_name = _r_io_name.str();
+        std::ostringstream _w_io_name;
+        _w_io_name << "writerIO-" << fileid;
+        std::string w_io_name = _w_io_name.str();
 
         // IO objects for reading and writing
-        adios2::IO reader_io = ad.DeclareIO("SimulationOutput");
-        adios2::IO writer_io = ad.DeclareIO("PDFAnalysisOutput");
-        if (!rank) {
-            std::cout << "PDF analysis reads from Simulation using engine type:  "
-                << reader_io.EngineType() << std::endl;
-            std::cout << "PDF analysis writes using engine type:                 "
-                << writer_io.EngineType() << std::endl;
-        }
+        adios2::IO reader_io = ad.DeclareIO(r_io_name);
+        adios2::IO writer_io = ad.DeclareIO(w_io_name);
+
+        reader_io.SetEngine("InSituMPI");
+        writer_io.SetEngine("BP4");
+
+        //Create the input and output filenames
+        std::ostringstream _infname;
+        _infname << "gs-" << fileid << ".bp";
+        std::string in_filename = _infname.str();
+        std::ostringstream _outfname;
+        _outfname << "pdf-" << fileid << ".bp";
+        std::string out_filename = _outfname.str();
 
         // Engines for reading and writing
         adios2::Engine reader =
@@ -201,6 +224,9 @@ int main(int argc, char *argv[])
             } else if (read_status != adios2::StepStatus::OK) {
                 break;
             }
+
+            if (rank == 0)
+                std::cout << "PC received next step for " << fileid << std::endl;
 
             int stepSimOut = reader.CurrentStep();
 
@@ -277,12 +303,6 @@ int main(int argc, char *argv[])
             // End adios2 step
             reader.EndStep();
 
-            if (!rank) {
-                std::cout << "PDF Analysis step " << stepAnalysis
-                    << " processing sim output step " << stepSimOut
-                    << " sim compute step " << simStep << std::endl;
-            }
-
             // HDF5 engine does not provide min/max. Let's calculate it
             //        if (reader_io.EngineType() == "HDF5")
             {
@@ -323,6 +343,15 @@ int main(int argc, char *argv[])
         // cleanup
         reader.Close();
         writer.Close();
+
+        // Tell the sim root that you are done
+        if (rank == 0) {
+            int ack = 1;
+            MPI_Request request;
+            MPI_Status status;
+            MPI_Isend(&ack, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &request);
+            MPI_Wait(&request, &status);
+        }
     }
 
     MPI_Barrier(comm);
