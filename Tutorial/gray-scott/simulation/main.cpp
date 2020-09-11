@@ -41,13 +41,13 @@ void print_simulator_settings(const GrayScott &s)
         << s.size_z << std::endl;
 }
 
-bool controller(double total_time, double write_time)
+bool controller(double total_time, double write_time, MPI_Comm comm)
 {
     double allow_ratio = 0.3;
     double write_frac = write_time/total_time;
     double global_write_frac = 0.0;
 
-    MPI_Allreduce(&write_frac, &global_write_frac, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&write_frac, &global_write_frac, 1, MPI_DOUBLE, MPI_MAX, comm);
     if (global_write_frac <= 0.4) return true;
     return false;
 }
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
         sim.iterate();
         double time_compute = timer_compute.stop();
 
-        write_this_step = controller(timer_total.elapsed(), timer_write.elapsed());
+        write_this_step = controller(timer_total.elapsed(), timer_write.elapsed(), comm);
         if (write_this_step) {
             timer_write.start();
 
