@@ -13,13 +13,13 @@
 void print_io_settings(const adios2::IO &io)
 {
     std::cout << "Simulation writes data using engine type:              "
-              << io.EngineType() << std::endl;
+        << io.EngineType() << std::endl;
 }
 
 void print_settings(const Settings &s)
 {
     std::cout << "grid:             " << s.L << "x" << s.L << "x" << s.L
-              << std::endl;
+        << std::endl;
     std::cout << "steps:            " << s.steps << std::endl;
     std::cout << "plotgap:          " << s.plotgap << std::endl;
     std::cout << "write_data        " << s.write_data << std::endl;
@@ -36,9 +36,20 @@ void print_settings(const Settings &s)
 void print_simulator_settings(const GrayScott &s)
 {
     std::cout << "process layout:   " << s.npx << "x" << s.npy << "x" << s.npz
-              << std::endl;
+        << std::endl;
     std::cout << "local grid size:  " << s.size_x << "x" << s.size_y << "x"
-              << s.size_z << std::endl;
+        << s.size_z << std::endl;
+}
+
+bool controller(double total_time, double write_time)
+{
+    double allow_ratio = 0.4;
+    double write_frac = write_time/total_time;
+    double global_write_frac = 0.0;
+
+    MPI_Allreduce(&write_frac, &global_write_frac, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    if (global_write_frac <= 0.4) return true;
+    return false;
 }
 
 int main(int argc, char **argv)
@@ -70,24 +81,16 @@ int main(int argc, char **argv)
     GrayScott sim(settings, comm);
     sim.init();
 
-    adios2::ADIOS adios(settings.adios_config, comm, adios2::DebugON);
-    adios2::IO io_main = adios.DeclareIO("SimulationOutput");
-    adios2::IO io_ckpt = adios.DeclareIO("SimulationCheckpoint");
+    adios2::ADIOS adios(comm, adios2::DebugON);
 
-    Writer writer_main(settings, sim, io_main);
-    Writer writer_ckpt(settings, sim, io_ckpt);
-
-    if (settings.write_data) writer_main.open(settings.output);
-
-    if (rank == 0) {
-        print_io_settings(io_main);
+    /* if (rank == 0) {
+        print_io_settings(io_bp4);
         std::cout << "========================================" << std::endl;
         print_settings(settings);
         print_simulator_settings(sim);
         std::cout << "========================================" << std::endl;
-    }
+    } */
 
-#ifdef ENABLE_TIMERS
     Timer timer_total;
     Timer timer_compute;
     Timer timer_write;
@@ -97,62 +100,68 @@ int main(int argc, char **argv)
 
     std::ofstream log(log_fname.str());
     log << "step\ttotal_gs\tcompute_gs\twrite_gs" << std::endl;
-#endif
 
     start_time = MPI_Wtime();
-    for (int i = 0; i < settings.steps;) {
-#ifdef ENABLE_TIMERS
+
+    // -------------------------------------------------------------------- //
+    for (int i = 0; i < settings.steps; i++) {
+        bool write_this_step = true;
+        double time_write = 0.0;
+        
         MPI_Barrier(comm);
         timer_total.start();
+        
         timer_compute.start();
-#endif
-
-        for (int j = 0; j < settings.plotgap; j++) {
-            sim.iterate();
-            i++;
-        }
-
-#ifdef ENABLE_TIMERS
+        sim.iterate();
         double time_compute = timer_compute.stop();
-        MPI_Barrier(comm);
-        timer_write.start();
-#endif
 
-        if (rank == 0) {
-            cur_time = MPI_Wtime() - start_time;
-            std::cout << "[" << cur_time << "] \t"
-                      << "Simulation at step " << i
-                      << " writing output step     " << i / settings.plotgap
-                      << std::endl;
+        write_this_step = controller(timer_total.elapsed(), timer_write.elapsed());
+        if (write_this_step) {
+            timer_write.start();
+
+            if (rank == 0) {
+                cur_time = MPI_Wtime() - start_time;
+                std::cout << "[" << cur_time << "] \t"
+                    << "Simulation at step " << i
+                    << " writing output step     " << i / settings.plotgap
+                    << std::endl;
+            }
+
+            // Declare IO
+            std::ostringstream _io_obj_name;
+            _io_obj_name << "Simout-" << i ;
+            std::string io_obj_name = _io_obj_name.str();
+            adios2::IO io_main = adios.DeclareIO(io_obj_name);
+            io_main.SetEngine("BP4");
+
+            // Create output filename
+            std::ostringstream _out_fname;
+            _out_fname << "gs-" << i << ".bp";
+
+            // Create writer object and open file
+            Writer writer_main(settings, sim, io_main);
+            std::string out_fname = _out_fname.str();
+            writer_main.open(out_fname);
+
+            // Write and close
+            writer_main.write(i, sim);
+            writer_main.close();
+
+            time_write = timer_write.stop();
         }
 
-       if (settings.write_data) writer_main.write(i, sim);
-
-        if (settings.checkpoint &&
-            i % (settings.plotgap * settings.checkpoint_freq) == 0) {
-            writer_ckpt.open(settings.checkpoint_output);
-            writer_ckpt.write(i, sim);
-            writer_ckpt.close();
-        }
-
-#ifdef ENABLE_TIMERS
-        double time_write = timer_write.stop();
         double time_step = timer_total.stop();
         MPI_Barrier(comm);
 
         log << i << "\t" << time_step << "\t" << time_compute << "\t"
             << time_write << std::endl;
-#endif
     }
+    // -------------------------------------------------------------------- //
 
-    if (settings.write_data) writer_main.close();
-
-#ifdef ENABLE_TIMERS
     log << "total\t" << timer_total.elapsed() << "\t" << timer_compute.elapsed()
         << "\t" << timer_write.elapsed() << std::endl;
 
     log.close();
-#endif
 
     MPI_Finalize();
 }
