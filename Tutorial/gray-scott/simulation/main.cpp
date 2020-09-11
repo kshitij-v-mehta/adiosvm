@@ -43,7 +43,7 @@ void print_simulator_settings(const GrayScott &s)
 
 bool controller(double total_time, double write_time)
 {
-    double allow_ratio = 0.4;
+    double allow_ratio = 0.3;
     double write_frac = write_time/total_time;
     double global_write_frac = 0.0;
 
