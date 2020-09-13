@@ -134,6 +134,7 @@ int main(int argc, char **argv)
             std::string io_obj_name = _io_obj_name.str();
             adios2::IO io_main = adios.DeclareIO(io_obj_name);
             io_main.SetEngine("BP4");
+            io_main.SetParameter("SubStreams", "128");
 
             // Create output filename
             std::ostringstream _out_fname;

@@ -155,6 +155,7 @@ int main(int argc, char **argv)
                 io_main.SetEngine("InSituMPI");
             else
                 io_main.SetEngine("BP4");
+            io_main.SetParameter("SubStreams", "128");
 
             if (rank == 0) {
                 std::string enginename = "InSituMPI";
