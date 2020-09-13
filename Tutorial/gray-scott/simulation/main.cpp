@@ -11,7 +11,7 @@
 #include "writer.h"
 
 #define MIN_ACCURACY 1E-2
-double accuracy = 1E-16;
+double accuracy = 1E-10;
 
 void print_io_settings(const adios2::IO &io)
 {
@@ -50,7 +50,7 @@ bool controller(double total_time, double write_time, MPI_Comm comm)
     double global_write_frac = 0.0;
 
     MPI_Allreduce(&write_frac, &global_write_frac, 1, MPI_DOUBLE, MPI_MAX, comm);
-    if (global_write_frac <= 0.7) {
+    if (global_write_frac <= 0.66) {
         accuracy = accuracy/10;
         return true;
     }
@@ -141,6 +141,7 @@ int main(int argc, char **argv)
             std::string io_obj_name = _io_obj_name.str();
             adios2::IO io_main = adios.DeclareIO(io_obj_name);
             io_main.SetEngine("BP4");
+            io_main.SetParameter("SubStreams", "128");
             adios2::Operator op = adios.DefineOperator(io_obj_name, "sz");
             if (rank == 0)
                 std::cout << "GS: Accuracy for step " << i << " set to " << accuracy << std::endl;
