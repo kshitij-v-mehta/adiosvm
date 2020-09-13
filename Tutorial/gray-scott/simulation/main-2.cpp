@@ -10,6 +10,9 @@
 #include "gray-scott.h"
 #include "writer.h"
 
+#define INSITUMPI 1
+#define BP4 2
+
 void print_io_settings(const adios2::IO &io)
 {
     std::cout << "Simulation writes data using engine type:              "
@@ -101,6 +104,12 @@ int main(int argc, char **argv)
     std::ofstream log(log_fname.str());
     log << "step\ttotal_gs\tcompute_gs\twrite_gs" << std::endl;
 
+    int pending = -1;
+    int ack = -1;
+    MPI_Request request;
+    MPI_Status status;
+    int flag = -1;
+    int engineid = -1;
     start_time = MPI_Wtime();
 
     // -------------------------------------------------------------------- //
@@ -115,25 +124,45 @@ int main(int argc, char **argv)
         sim.iterate();
         double time_compute = timer_compute.stop();
 
-        write_this_step = controller(timer_total.elapsed(), timer_write.elapsed(), comm);
+        write_this_step = true;
         if (write_this_step) {
             timer_write.start();
-
-            if (rank == 0) {
-                cur_time = MPI_Wtime() - start_time;
-                std::cout << "[" << cur_time << "] \t"
-                    << "Simulation at step " << i
-                    << " writing output step     " << i / settings.plotgap
-                    << std::endl;
-            }
 
             // Declare IO
             std::ostringstream _io_obj_name;
             _io_obj_name << "Simout-" << i ;
             std::string io_obj_name = _io_obj_name.str();
             adios2::IO io_main = adios.DeclareIO(io_obj_name);
-            io_main.SetEngine("BP4");
+            
+            // Wait if there is an outstanding request
+            engineid = INSITUMPI;
+            if (rank == 0) {
+                if (pending > -1) {
+                    MPI_Test(&request, &flag, &status);
+                    if (!flag)  //pdf_calc has not returned
+                        engineid = BP4;
+                    else
+                        pending = 0;
+                }
+            }
+            MPI_Bcast(&engineid, 1, MPI_INT, 0, comm);
+            
+            //Send file id to the pdf_calc root
+            if ((engineid == INSITUMPI) && (rank == 0))
+                MPI_Send(&i, 1, MPI_INT, procs, 0, MPI_COMM_WORLD);
 
+            if (engineid == INSITUMPI)
+                io_main.SetEngine("InSituMPI");
+            else
+                io_main.SetEngine("BP4");
+
+            if (rank == 0) {
+                std::string enginename = "InSituMPI";
+                if (engineid == BP4) enginename = "BP4";
+                cur_time = MPI_Wtime() - start_time;
+                std::cout << "GS: [" << cur_time << "]\t sending file " << i << " to " << enginename << std::endl;
+            }
+            
             // Create output filename
             std::ostringstream _out_fname;
             _out_fname << "gs-" << i << ".bp";
@@ -147,6 +176,12 @@ int main(int argc, char **argv)
             writer_main.write(i, sim);
             writer_main.close();
 
+            // Post a non-blocking recv from pdf_calc about completion
+            if ((engineid == INSITUMPI) && (rank == 0)) {
+                pending = 1;
+                MPI_Irecv(&ack, 1, MPI_INT, procs, 0, MPI_COMM_WORLD, &request);
+            }
+
             time_write = timer_write.stop();
         }
 
@@ -156,6 +191,12 @@ int main(int argc, char **argv)
         log << i << "\t" << time_step << "\t" << time_compute << "\t"
             << time_write << std::endl;
     }
+    
+    //Send term signal to the pdf_calc root
+    int signal = -1;
+    if (rank == 0)
+        MPI_Send(&signal, 1, MPI_INT, procs, 0, MPI_COMM_WORLD);
+
     // -------------------------------------------------------------------- //
 
     log << "total\t" << timer_total.elapsed() << "\t" << timer_compute.elapsed()
