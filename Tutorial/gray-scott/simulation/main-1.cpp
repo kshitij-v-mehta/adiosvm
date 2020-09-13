@@ -92,6 +92,9 @@ int main(int argc, char **argv)
         std::cout << "========================================" << std::endl;
     } */
 
+    if (rank == 0)
+        std::cout << "IO threshold percent: " << settings.io_threshold_percent << std::endl;
+
     Timer timer_total;
     Timer timer_compute;
     Timer timer_write;
@@ -116,7 +119,7 @@ int main(int argc, char **argv)
         sim.iterate();
         double time_compute = timer_compute.stop();
 
-        write_this_step = controller(timer_total.elapsed(), timer_write.elapsed(), comm);
+        write_this_step = controller(timer_total.elapsed(), timer_write.elapsed(), settings.io_threshold_percent, comm);
         if (write_this_step) {
             timer_write.start();
 

@@ -92,6 +92,9 @@ int main(int argc, char **argv)
         std::cout << "========================================" << std::endl;
     } */
 
+    if (rank == 0)
+        std::cout << "IO threshold percent: " << settings.io_threshold_percent << std::endl;
+
     Timer timer_total;
     Timer timer_compute;
     Timer timer_write;
