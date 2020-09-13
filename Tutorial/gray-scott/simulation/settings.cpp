@@ -22,6 +22,7 @@ void to_json(nlohmann::json &j, const Settings &s)
                        {"adios_config", s.adios_config},
                        {"adios_span", s.adios_span},
                        {"adios_memory_selection", s.adios_memory_selection},
+                       {"io_threshold_percent", s.io_threshold_percent},
                        {"mesh_type", s.mesh_type}};
 }
 
@@ -45,6 +46,7 @@ void from_json(const nlohmann::json &j, Settings &s)
     j.at("adios_span").get_to(s.adios_span);
     j.at("adios_memory_selection").get_to(s.adios_memory_selection);
     j.at("mesh_type").get_to(s.mesh_type);
+    j.at("io_threshold_percent").get_to(s.io_threshold_percent);
 }
 
 Settings::Settings()
@@ -67,6 +69,7 @@ Settings::Settings()
     adios_span = false;
     adios_memory_selection = false;
     mesh_type = "image";
+    io_threshold_percent = 0.3;
 }
 
 Settings Settings::from_json(const std::string &fname)

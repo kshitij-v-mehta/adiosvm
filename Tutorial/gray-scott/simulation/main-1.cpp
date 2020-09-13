@@ -30,6 +30,7 @@ void print_settings(const Settings &s)
     std::cout << "Dv:               " << s.Dv << std::endl;
     std::cout << "noise:            " << s.noise << std::endl;
     std::cout << "output:           " << s.output << std::endl;
+    std::cout << "io_threshold:     " << s.io_threshold_percent << std::endl;
     std::cout << "adios_config:     " << s.adios_config << std::endl;
 }
 
@@ -41,14 +42,14 @@ void print_simulator_settings(const GrayScott &s)
         << s.size_z << std::endl;
 }
 
-bool controller(double total_time, double write_time, MPI_Comm comm)
+bool controller(double total_time, double write_time, double io_threshold_percent, MPI_Comm comm)
 {
-    double allow_ratio = 0.3;
+    double io_threshold = io_threshold_percent/100;
     double write_frac = write_time/total_time;
     double global_write_frac = 0.0;
 
     MPI_Allreduce(&write_frac, &global_write_frac, 1, MPI_DOUBLE, MPI_MAX, comm);
-    if (global_write_frac <= 0.4) return true;
+    if (global_write_frac <= io_threshold) return true;
     return false;
 }
 

@@ -13,6 +13,7 @@ struct Settings {
     double Du;
     double Dv;
     double noise;
+    double io_threshold_percent;
     std::string output;
     bool write_data;
     bool checkpoint;

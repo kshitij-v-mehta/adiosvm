@@ -15,5 +15,6 @@
     "adios_config": "adios2.xml",
     "adios_span": false,
     "adios_memory_selection": false,
-    "mesh_type": "image"
+    "mesh_type": "image",
+    "io_threshold_percent": 30
 }

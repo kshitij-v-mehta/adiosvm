@@ -10,9 +10,6 @@
 #include "gray-scott.h"
 #include "writer.h"
 
-#define MIN_ACCURACY 1E-2
-double accuracy = 1E-10;
-
 void print_io_settings(const adios2::IO &io)
 {
     std::cout << "Simulation writes data using engine type:              "
@@ -33,6 +30,7 @@ void print_settings(const Settings &s)
     std::cout << "Dv:               " << s.Dv << std::endl;
     std::cout << "noise:            " << s.noise << std::endl;
     std::cout << "output:           " << s.output << std::endl;
+    std::cout << "io_threshold:     " << s.io_threshold_percent << std::endl;
     std::cout << "adios_config:     " << s.adios_config << std::endl;
 }
 
@@ -44,20 +42,15 @@ void print_simulator_settings(const GrayScott &s)
         << s.size_z << std::endl;
 }
 
-bool controller(double total_time, double write_time, MPI_Comm comm)
+bool controller(double total_time, double write_time, double io_threshold_percent, MPI_Comm comm)
 {
+    double io_threshold = io_threshold_percent/100;
     double write_frac = write_time/total_time;
     double global_write_frac = 0.0;
 
     MPI_Allreduce(&write_frac, &global_write_frac, 1, MPI_DOUBLE, MPI_MAX, comm);
-    if (global_write_frac <= 0.66) {
-        accuracy = accuracy/10;
-        return true;
-    }
-
-    if ((accuracy*10) <= MIN_ACCURACY)
-        accuracy = accuracy*10;
-    return true;
+    if (global_write_frac <= io_threshold) return true;
+    return false;
 }
 
 int main(int argc, char **argv)
@@ -123,7 +116,7 @@ int main(int argc, char **argv)
         sim.iterate();
         double time_compute = timer_compute.stop();
 
-        write_this_step = controller(timer_total.elapsed(), timer_write.elapsed(), comm);
+        write_this_step = controller(timer_total.elapsed(), timer_write.elapsed(), settings.io_threshold_percent, comm);
         if (write_this_step) {
             timer_write.start();
 
@@ -141,17 +134,13 @@ int main(int argc, char **argv)
             std::string io_obj_name = _io_obj_name.str();
             adios2::IO io_main = adios.DeclareIO(io_obj_name);
             io_main.SetEngine("BP4");
-            io_main.SetParameter("SubStreams", "128");
-            adios2::Operator op = adios.DefineOperator(io_obj_name, "sz");
-            if (rank == 0)
-                std::cout << "GS: Accuracy for step " << i << " set to " << accuracy << std::endl;
 
             // Create output filename
             std::ostringstream _out_fname;
             _out_fname << "gs-" << i << ".bp";
 
             // Create writer object and open file
-            Writer writer_main(settings, sim, io_main, op, accuracy);
+            Writer writer_main(settings, sim, io_main);
             std::string out_fname = _out_fname.str();
             writer_main.open(out_fname);
 
