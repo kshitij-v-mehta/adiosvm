@@ -10,6 +10,9 @@
 #include "gray-scott.h"
 #include "writer.h"
 
+#define MIN_ACCURACY 1E-2
+double accuracy = 1E-16;
+
 void print_io_settings(const adios2::IO &io)
 {
     std::cout << "Simulation writes data using engine type:              "
@@ -43,13 +46,18 @@ void print_simulator_settings(const GrayScott &s)
 
 bool controller(double total_time, double write_time, MPI_Comm comm)
 {
-    double allow_ratio = 0.3;
     double write_frac = write_time/total_time;
     double global_write_frac = 0.0;
 
     MPI_Allreduce(&write_frac, &global_write_frac, 1, MPI_DOUBLE, MPI_MAX, comm);
-    if (global_write_frac <= 0.4) return true;
-    return false;
+    if (global_write_frac <= 0.7) {
+        accuracy = accuracy/10;
+        return true;
+    }
+
+    if ((accuracy*10) <= MIN_ACCURACY)
+        accuracy = accuracy*10;
+    return true;
 }
 
 int main(int argc, char **argv)
@@ -133,13 +141,16 @@ int main(int argc, char **argv)
             std::string io_obj_name = _io_obj_name.str();
             adios2::IO io_main = adios.DeclareIO(io_obj_name);
             io_main.SetEngine("BP4");
+            adios2::Operator op = adios.DefineOperator(io_obj_name, "sz");
+            if (rank == 0)
+                std::cout << "GS: Accuracy for step " << i << " set to " << accuracy << std::endl;
 
             // Create output filename
             std::ostringstream _out_fname;
             _out_fname << "gs-" << i << ".bp";
 
             // Create writer object and open file
-            Writer writer_main(settings, sim, io_main);
+            Writer writer_main(settings, sim, io_main, op, accuracy);
             std::string out_fname = _out_fname.str();
             writer_main.open(out_fname);
 

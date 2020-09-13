@@ -38,7 +38,7 @@ void define_bpvtk_attribute(const Settings &s, adios2::IO &io)
     // TODO extend to other formats e.g. structured
 }
 
-Writer::Writer(const Settings &settings, const GrayScott &sim, adios2::IO io)
+Writer::Writer(const Settings &settings, const GrayScott &sim, adios2::IO io, adios2::Operator op, double accuracy)
     : settings(settings), io(io)
 {
     io.DefineAttribute<double>("F", settings.F);
@@ -61,6 +61,9 @@ Writer::Writer(const Settings &settings, const GrayScott &sim, adios2::IO io)
         io.DefineVariable<double>("V", {settings.L, settings.L, settings.L},
                                   {sim.offset_z, sim.offset_y, sim.offset_x},
                                   {sim.size_z, sim.size_y, sim.size_x});
+
+    var_u.AddOperation(op,{{"accuracy", std::to_string(accuracy)}});
+    var_v.AddOperation(op,{{"accuracy", std::to_string(accuracy)}});
 
     if (settings.adios_memory_selection) {
         var_u.SetMemorySelection(

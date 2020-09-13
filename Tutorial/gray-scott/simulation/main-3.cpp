@@ -67,6 +67,7 @@ int main(int argc, char **argv)
     MPI_Comm_size(comm, &procs);
 
     double start_time, cur_time;
+    double accuracy = 0.0;
 
     if (argc < 2) {
         if (rank == 0) {
@@ -139,7 +140,7 @@ int main(int argc, char **argv)
             _out_fname << "gs-" << i << ".bp";
 
             // Create writer object and open file
-            Writer writer_main(settings, sim, io_main);
+            Writer writer_main(settings, sim, io_main, accuracy);
             std::string out_fname = _out_fname.str();
             writer_main.open(out_fname);
 
