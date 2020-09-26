@@ -38,7 +38,7 @@ void define_bpvtk_attribute(const Settings &s, adios2::IO &io)
     // TODO extend to other formats e.g. structured
 }
 
-Writer::Writer(const Settings &settings, const GrayScott &sim, adios2::IO io)
+Writer::Writer(const Settings &settings, const GrayScott &sim, adios2::IO io, double accuracy)
     : settings(settings), io(io)
 {
     io.DefineAttribute<double>("F", settings.F);
@@ -61,6 +61,43 @@ Writer::Writer(const Settings &settings, const GrayScott &sim, adios2::IO io)
         io.DefineVariable<double>("V", {settings.L, settings.L, settings.L},
                                   {sim.offset_z, sim.offset_y, sim.offset_x},
                                   {sim.size_z, sim.size_y, sim.size_x});
+
+    if (settings.adios_memory_selection) {
+        var_u.SetMemorySelection(
+            {{1, 1, 1}, {sim.size_z + 2, sim.size_y + 2, sim.size_x + 2}});
+        var_v.SetMemorySelection(
+            {{1, 1, 1}, {sim.size_z + 2, sim.size_y + 2, sim.size_x + 2}});
+    }
+
+    var_step = io.DefineVariable<int>("step");
+}
+
+Writer::Writer(const Settings &settings, const GrayScott &sim, adios2::IO io, adios2::Operator op, double accuracy)
+    : settings(settings), io(io)
+{
+    io.DefineAttribute<double>("F", settings.F);
+    io.DefineAttribute<double>("k", settings.k);
+    io.DefineAttribute<double>("dt", settings.dt);
+    io.DefineAttribute<double>("Du", settings.Du);
+    io.DefineAttribute<double>("Dv", settings.Dv);
+    io.DefineAttribute<double>("noise", settings.noise);
+    // define VTK visualization schema as an attribute
+    if (!settings.mesh_type.empty()) {
+        define_bpvtk_attribute(settings, io);
+    }
+
+    var_u =
+        io.DefineVariable<double>("U", {settings.L, settings.L, settings.L},
+                                  {sim.offset_z, sim.offset_y, sim.offset_x},
+                                  {sim.size_z, sim.size_y, sim.size_x});
+
+    var_v =
+        io.DefineVariable<double>("V", {settings.L, settings.L, settings.L},
+                                  {sim.offset_z, sim.offset_y, sim.offset_x},
+                                  {sim.size_z, sim.size_y, sim.size_x});
+
+    var_u.AddOperation(op,{{"accuracy", std::to_string(accuracy)}});
+    var_v.AddOperation(op,{{"accuracy", std::to_string(accuracy)}});
 
     if (settings.adios_memory_selection) {
         var_u.SetMemorySelection(

@@ -14,6 +14,7 @@ struct Settings {
     double Dv;
     double noise;
     double io_threshold_percent;
+    int policy_id;
     std::string output;
     bool write_data;
     bool checkpoint;

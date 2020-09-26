@@ -16,5 +16,6 @@
     "adios_span": false,
     "adios_memory_selection": false,
     "mesh_type": "image",
-    "io_threshold_percent": 30
+    "io_threshold_percent": 30,
+    "policy_id": 1
 }
