@@ -22,6 +22,7 @@ void print_settings(const Settings &s)
               << std::endl;
     std::cout << "steps:            " << s.steps << std::endl;
     std::cout << "plotgap:          " << s.plotgap << std::endl;
+    std::cout << "write_data        " << s.write_data << std::endl;
     std::cout << "F:                " << s.F << std::endl;
     std::cout << "k:                " << s.k << std::endl;
     std::cout << "dt:               " << s.dt << std::endl;
@@ -60,6 +61,8 @@ int main(int argc, char **argv)
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &procs);
 
+    double start_time, cur_time;
+
     if (argc < 2) {
         if (rank == 0) {
             std::cerr << "Too few arguments" << std::endl;
@@ -80,7 +83,7 @@ int main(int argc, char **argv)
     Writer writer_main(settings, sim, io_main);
     Writer writer_ckpt(settings, sim, io_ckpt);
 
-    writer_main.open(settings.output);
+    if (settings.write_data) writer_main.open(settings.output);
 
     if (rank == 0) {
         print_io_settings(io_main);
@@ -103,6 +106,7 @@ int main(int argc, char **argv)
     std::ofstream log(log_fname.str());
     log << indented_string("step") << indented_string("total_gs") << indented_string("compute_gs") << indented_string("comm_gs") << indented_string("write_gs") << std::endl;
 
+    start_time = MPI_Wtime();
     for (int i = 0; i < settings.steps;) {
         timer_total.start();
 
@@ -114,12 +118,14 @@ int main(int argc, char **argv)
         timer_write.start();
 
         if (rank == 0) {
-            std::cout << "Simulation at step " << i
+            cur_time = MPI_Wtime() - start_time;
+            std::cout << "[" << cur_time << "] \t"
+                      << "Simulation at step " << i
                       << " writing output step     " << i / settings.plotgap
                       << std::endl;
         }
 
-        writer_main.write(i, sim);
+       if (settings.write_data) writer_main.write(i, sim);
 
         if (settings.checkpoint &&
             i % (settings.plotgap * settings.checkpoint_freq) == 0) {
@@ -140,7 +146,7 @@ int main(int argc, char **argv)
             << std::endl;
     }
 
-    writer_main.close();
+    if (settings.write_data) writer_main.close();
 
     log << "total\t" << timer_total.elapsed() << "\t" << timer_compute.elapsed()
         << "\t" << timer_comm.elapsed() << "\t" << timer_write.elapsed() << std::endl;
