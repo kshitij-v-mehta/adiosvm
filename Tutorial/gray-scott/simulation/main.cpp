@@ -42,7 +42,7 @@ void print_simulator_settings(const GrayScott &s)
 }
 
 std::string indented_string(std::string msg) {
-    int n = 16;
+    int n = 32;
     std::string indent(n-msg.length(), ' ');
     return msg+indent;
 }
@@ -93,6 +93,7 @@ int main(int argc, char **argv)
         std::cout << "========================================" << std::endl;
     }
 
+#ifdef ENABLE_TIMERS
     Timer timer_total;
     Timer timer_compute;
     Timer timer_comm;
@@ -104,11 +105,20 @@ int main(int argc, char **argv)
     log_fname << "gray_scott_pe_" << rank << ".log";
 
     std::ofstream log(log_fname.str());
-    log << indented_string("step") << indented_string("total_gs") << indented_string("compute_gs") << indented_string("comm_gs") << indented_string("write_gs") << std::endl;
+    log << indented_string("step")
+        << indented_string("start_timestamp") 
+        << indented_string("total_gs") 
+        << indented_string("compute_gs") 
+        << indented_string("comm_gs") 
+        << indented_string("write_gs") 
+        << std::endl;
+#endif
 
     start_time = MPI_Wtime();
     for (int i = 0; i < settings.steps;) {
+#ifdef ENABLE_TIMERS
         timer_total.start();
+        cur_time = MPI_Wtime() - start_time;
 
         for (int j = 0; j < settings.plotgap; j++) {
             sim.iterate(&timer_compute, &timer_comm, &time_compute, &time_comm);
@@ -116,9 +126,14 @@ int main(int argc, char **argv)
         }
 
         timer_write.start();
+#else
+        for (int j = 0; j < settings.plotgap; j++) {
+            sim.iterate();
+            i++;
+        }
+#endif
 
         if (rank == 0) {
-            cur_time = MPI_Wtime() - start_time;
             std::cout << "[" << cur_time << "] \t"
                       << "Simulation at step " << i
                       << " writing output step     " << i / settings.plotgap
@@ -134,24 +149,33 @@ int main(int argc, char **argv)
             writer_ckpt.close();
         }
 
+#ifdef ENABLE_TIMERS
         time_write = timer_write.stop();
-
         time_step = timer_total.stop();
 
         log << indented_string(std::to_string(i)) 
+            << indented_string(std::to_string(cur_time))
             << indented_string(std::to_string(time_step)) 
             << indented_string(std::to_string(time_compute))
             << indented_string(std::to_string(time_comm))
             << indented_string(std::to_string(time_write)) 
             << std::endl;
+#endif
     }
 
     if (settings.write_data) writer_main.close();
 
-    log << "total\t" << timer_total.elapsed() << "\t" << timer_compute.elapsed()
-        << "\t" << timer_comm.elapsed() << "\t" << timer_write.elapsed() << std::endl;
+#ifdef ENABLE_TIMERS
+    log << indented_string("total") 
+        << indented_string("")
+        << indented_string(std::to_string(timer_total.elapsed()))
+        << indented_string(std::to_string(timer_compute.elapsed()))
+        << indented_string(std::to_string(timer_comm.elapsed()))
+        << indented_string(std::to_string(timer_write.elapsed()))
+        << std::endl;
 
     log.close();
+#endif
 
     MPI_Finalize();
 }

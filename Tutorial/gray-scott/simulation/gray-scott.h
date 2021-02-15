@@ -25,7 +25,11 @@ public:
     ~GrayScott();
 
     void init();
+#ifdef ENABLE_TIMERS
     void iterate(Timer*, Timer*, double*, double*);
+#else
+    void iterate();
+#endif
 
     const std::vector<double> &u_ghost() const;
     const std::vector<double> &v_ghost() const;

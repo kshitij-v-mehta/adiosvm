@@ -23,6 +23,7 @@ void GrayScott::init()
     init_field();
 }
 
+#ifdef ENABLE_TIMERS
 void GrayScott::iterate(Timer *timer_compute, Timer *timer_comm, double* time_compute, double* time_comm)
 {
     timer_comm->start();
@@ -36,6 +37,17 @@ void GrayScott::iterate(Timer *timer_compute, Timer *timer_comm, double* time_co
     v.swap(v2);
     *time_compute = timer_compute->stop();
 }
+
+#else
+void GrayScott::iterate()
+{
+    exchange(u, v);
+    calc(u, v, u2, v2);
+
+    u.swap(u2);
+    v.swap(v2);
+}
+#endif
 
 const std::vector<double> &GrayScott::u_ghost() const { return u; }
 
