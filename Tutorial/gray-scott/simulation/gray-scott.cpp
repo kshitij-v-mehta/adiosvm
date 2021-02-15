@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "gray-scott.h"
+#include "../common/timer.hpp"
 
 GrayScott::GrayScott(const Settings &settings, MPI_Comm comm)
     : settings(settings), comm(comm), rand_dev(), mt_gen(rand_dev()),
@@ -22,13 +23,18 @@ void GrayScott::init()
     init_field();
 }
 
-void GrayScott::iterate()
+void GrayScott::iterate(Timer *timer_compute, Timer *timer_comm, double* time_compute, double* time_comm)
 {
+    timer_comm->start();
     exchange(u, v);
+    *time_comm = timer_comm->stop();
+    
+    timer_compute->start();
     calc(u, v, u2, v2);
 
     u.swap(u2);
     v.swap(v2);
+    *time_compute = timer_compute->stop();
 }
 
 const std::vector<double> &GrayScott::u_ghost() const { return u; }

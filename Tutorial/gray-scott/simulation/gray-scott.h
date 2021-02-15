@@ -7,6 +7,7 @@
 #include <mpi.h>
 
 #include "settings.h"
+#include "../common/timer.hpp"
 
 class GrayScott
 {
@@ -24,7 +25,7 @@ public:
     ~GrayScott();
 
     void init();
-    void iterate();
+    void iterate(Timer*, Timer*, double*, double*);
 
     const std::vector<double> &u_ghost() const;
     const std::vector<double> &v_ghost() const;
