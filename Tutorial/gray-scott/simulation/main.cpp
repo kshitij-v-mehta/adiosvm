@@ -106,11 +106,11 @@ int main(int argc, char **argv)
 
     std::ofstream log(log_fname.str());
     log << indented_string("step")
-        << indented_string("start_timestamp") 
-        << indented_string("total_gs") 
-        << indented_string("compute_gs") 
-        << indented_string("comm_gs") 
-        << indented_string("write_gs") 
+        << indented_string("start_timestamp (seconds)") 
+        << indented_string("total_gs (ms)") 
+        << indented_string("compute_gs (ms)") 
+        << indented_string("comm_gs (ms)") 
+        << indented_string("write_gs (ms)") 
         << std::endl;
 #endif
 
