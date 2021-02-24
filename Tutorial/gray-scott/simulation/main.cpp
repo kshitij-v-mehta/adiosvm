@@ -71,9 +71,14 @@ int main(int argc, char **argv)
         MPI_Abort(MPI_COMM_WORLD, -1);
     }
 
+    std::ostringstream log_fname;
+    log_fname << "gray_scott_pe_" << rank << ".log";
+
+    std::ofstream log(log_fname.str());
+    
     Settings settings = Settings::from_json(argv[1]);
 
-    GrayScott sim(settings, comm);
+    GrayScott sim(settings, log, comm);
     sim.init();
 
     adios2::ADIOS adios(settings.adios_config, comm, adios2::DebugON);
@@ -101,10 +106,6 @@ int main(int argc, char **argv)
 
     double time_step, time_compute, time_comm, time_write;
 
-    std::ostringstream log_fname;
-    log_fname << "gray_scott_pe_" << rank << ".log";
-
-    std::ofstream log(log_fname.str());
     log << indented_string("step")
         << indented_string("start_timestamp (seconds)") 
         << indented_string("total_gs (ms)") 

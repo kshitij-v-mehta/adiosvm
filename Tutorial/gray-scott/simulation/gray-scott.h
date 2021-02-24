@@ -3,6 +3,9 @@
 
 #include <random>
 #include <vector>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 #include <mpi.h>
 
@@ -21,7 +24,7 @@ public:
     // Offset of local array in the global array
     size_t offset_x, offset_y, offset_z;
 
-    GrayScott(const Settings &settings, MPI_Comm comm);
+    GrayScott(const Settings &settings, std::ofstream& log, MPI_Comm comm);
     ~GrayScott();
 
     void init();
@@ -42,6 +45,7 @@ public:
 
 protected:
     Settings settings;
+    std::ofstream& log;
 
     std::vector<double> u, v, u2, v2;
 

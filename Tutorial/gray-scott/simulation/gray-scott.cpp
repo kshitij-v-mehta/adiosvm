@@ -5,12 +5,15 @@
 #include <mpi.h>
 #include <random>
 #include <vector>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 #include "gray-scott.h"
 #include "../common/timer.hpp"
 
-GrayScott::GrayScott(const Settings &settings, MPI_Comm comm)
-    : settings(settings), comm(comm), rand_dev(), mt_gen(rand_dev()),
+GrayScott::GrayScott(const Settings &settings, std::ofstream& log, MPI_Comm comm)
+    : settings(settings), log(log), comm(comm), rand_dev(), mt_gen(rand_dev()),
       uniform_dist(-1.0, 1.0)
 {
 }
@@ -153,6 +156,7 @@ void GrayScott::init_mpi()
     int dims[3] = {};
     const int periods[3] = {1, 1, 1};
     int coords[3] = {};
+    int ew_size, ns_size, ud_size;
 
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &procs);
@@ -203,6 +207,19 @@ void GrayScott::init_mpi()
     MPI_Type_vector((size_y + 2) * (size_z + 2), 1, size_x + 2, MPI_DOUBLE,
                     &yz_face_type);
     MPI_Type_commit(&yz_face_type);
+
+    MPI_Type_size(yz_face_type, &ew_size);
+    MPI_Type_size(xy_face_type, &ns_size);
+    MPI_Type_size(xz_face_type, &ud_size);
+
+    log << "Rank " << rank 
+        << ", east " << east 
+        << ", west " << west << ", size " << ew_size 
+        << ", north " << north
+        << ", south " << south << ", size " << ns_size 
+        << ", up " << up
+        << ", down " << down << ", size " << ud_size 
+        << std::endl;
 }
 
 void GrayScott::exchange_xy(std::vector<double> &local_data) const
