@@ -157,9 +157,12 @@ void GrayScott::init_mpi()
     const int periods[3] = {1, 1, 1};
     int coords[3] = {};
     int ew_size, ns_size, ud_size;
+    int hostname_len;
+    char hostname[MPI_MAX_PROCESSOR_NAME];
 
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &procs);
+    MPI_Get_processor_name(hostname, &hostname_len);
 
     MPI_Dims_create(procs, 3, dims);
     npx = dims[0];
@@ -213,6 +216,7 @@ void GrayScott::init_mpi()
     MPI_Type_size(xz_face_type, &ud_size);
 
     log << "Rank " << rank 
+        << ", hostname " << hostname
         << ", east " << east 
         << ", west " << west << ", size " << ew_size 
         << ", north " << north
