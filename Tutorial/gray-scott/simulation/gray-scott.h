@@ -49,6 +49,12 @@ protected:
 
     std::vector<double> u, v, u2, v2;
 
+    int in_fd, out_fd;
+    off_t offset;
+    int bsize;
+    void *fbuf;
+    off_t in_fsize;
+
     int rank, procs;
     int west, east, up, down, north, south;
     MPI_Comm comm;
@@ -62,6 +68,8 @@ protected:
     std::random_device rand_dev;
     std::mt19937 mt_gen;
     std::uniform_real_distribution<double> uniform_dist;
+
+    void fileIO();
 
     // Setup cartesian communicator data types
     void init_mpi();

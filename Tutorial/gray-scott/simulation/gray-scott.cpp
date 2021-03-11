@@ -8,6 +8,10 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "gray-scott.h"
 #include "../common/timer.hpp"
@@ -16,9 +20,22 @@ GrayScott::GrayScott(const Settings &settings, std::ofstream& log, MPI_Comm comm
     : settings(settings), log(log), comm(comm), rand_dev(), mt_gen(rand_dev()),
       uniform_dist(-1.0, 1.0)
 {
+    in_fd = 0; out_fd = 0;
+    offset = 0;
+    bsize = 16777216;  // 16 MB
+    bsize = 1024; 
+    in_fsize = 0;
+    fbuf = malloc(bsize);
+    if (fbuf == NULL) {
+        std::cout << "Rank " << rank << " could not allocate buffer. ABORTING." << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, -1);
+    }
 }
 
-GrayScott::~GrayScott() {}
+GrayScott::~GrayScott() {
+    close(in_fd);
+    close(out_fd);
+}
 
 void GrayScott::init()
 {
@@ -34,10 +51,11 @@ void GrayScott::iterate(Timer *timer_compute, Timer *timer_comm, double* time_co
     *time_comm = timer_comm->stop();
     
     timer_compute->start();
-    calc(u, v, u2, v2);
+    /* calc(u, v, u2, v2);
 
     u.swap(u2);
-    v.swap(v2);
+    v.swap(v2); */
+    fileIO();
     *time_compute = timer_compute->stop();
 }
 
@@ -51,6 +69,69 @@ void GrayScott::iterate()
     v.swap(v2);
 }
 #endif
+
+void GrayScott::fileIO()
+{
+    int ret;
+    double tick, tock;
+    
+    std::string _infname  = "./mnt/bb/kmehta/zeros-" + std::to_string(rank) + ".out";
+    std::string _outfname = "zeros-" + std::to_string(rank) + ".out";
+    const char *infname  = _infname.c_str();
+    const char *outfname = _outfname.c_str();
+
+    if (in_fd==0) {
+        in_fd  = open(infname,  O_RDONLY);
+        out_fd = open(outfname, O_CREAT|O_WRONLY, 0644);
+
+        if (in_fd < 0) {
+            std::cout << "Rank " << rank << " could not open input file. ABORTING." << std::endl;
+            MPI_Abort(MPI_COMM_WORLD, -1);
+        }
+
+        if (out_fd < 0) {
+            std::cout << "Rank " << rank << " could not open output file. ABORTING." << std::endl;
+            MPI_Abort(MPI_COMM_WORLD, -1);
+        }
+
+        //get incoming file size
+        struct stat st;
+        stat(infname, &st);
+        in_fsize = st.st_size;
+
+        if (in_fsize <= 0) {
+            std::cout << "Rank " << rank << " received incorrect incoming file size " << in_fsize
+                << ". ABORTING." << std::endl;
+            MPI_Abort(MPI_COMM_WORLD, -1);
+        }
+    }
+
+    tick = MPI_Wtime();
+    tock = MPI_Wtime();
+    while(tock-tick < 8) {
+        //check offset
+        if (offset + bsize >= in_fsize) offset = 0;
+
+        //read in
+        ret = pread(in_fd, fbuf, bsize, offset);
+        if (ret < 0) {
+            std::cout << "Rank " << rank << " received negative return read status. " << 
+                ret << ". Offset: " << offset << ", bsize: " << bsize << ". ABORTING" << std::endl;
+            MPI_Abort(MPI_COMM_WORLD, -1);
+        }
+
+        //write out
+        ret = pwrite(out_fd, fbuf, bsize, offset);
+        if (ret < 0) {
+            std::cout << "Rank " << rank << " received negative return write status. " << 
+                ret << ". Offset: " << offset << ", bsize: " << bsize << ". ABORTING" << std::endl;
+            MPI_Abort(MPI_COMM_WORLD, -1);
+        }
+        offset += bsize;
+        tock = MPI_Wtime();
+    }
+
+}
 
 const std::vector<double> &GrayScott::u_ghost() const { return u; }
 
