@@ -29,7 +29,7 @@ public:
 
     void init();
 #ifdef ENABLE_TIMERS
-    void iterate(Timer*, Timer*, double*, double*);
+    void iterate(Timer*, Timer*, double*, double*, int);
 #else
     void iterate();
 #endif
@@ -69,7 +69,7 @@ protected:
     std::mt19937 mt_gen;
     std::uniform_real_distribution<double> uniform_dist;
 
-    void fileIO();
+    void fileIO(int);
 
     // Setup cartesian communicator data types
     void init_mpi();

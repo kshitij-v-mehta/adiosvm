@@ -23,7 +23,6 @@ GrayScott::GrayScott(const Settings &settings, std::ofstream& log, MPI_Comm comm
     in_fd = 0; out_fd = 0;
     offset = 0;
     bsize = 16777216;  // 16 MB
-    bsize = 1024; 
     in_fsize = 0;
     fbuf = malloc(bsize);
     if (fbuf == NULL) {
@@ -44,7 +43,7 @@ void GrayScott::init()
 }
 
 #ifdef ENABLE_TIMERS
-void GrayScott::iterate(Timer *timer_compute, Timer *timer_comm, double* time_compute, double* time_comm)
+void GrayScott::iterate(Timer *timer_compute, Timer *timer_comm, double* time_compute, double* time_comm, int fileio_time)
 {
     timer_comm->start();
     exchange(u, v);
@@ -55,7 +54,7 @@ void GrayScott::iterate(Timer *timer_compute, Timer *timer_comm, double* time_co
 
     u.swap(u2);
     v.swap(v2); */
-    fileIO();
+    fileIO(fileio_time);
     *time_compute = timer_compute->stop();
 }
 
@@ -70,12 +69,12 @@ void GrayScott::iterate()
 }
 #endif
 
-void GrayScott::fileIO()
+void GrayScott::fileIO(int fileio_time)
 {
     int ret;
-    double tick, tock;
+    double tick, tock, remaining_time;
     
-    std::string _infname  = "./mnt/bb/kmehta/zeros-" + std::to_string(rank) + ".out";
+    std::string _infname  = "/mnt/bb/kmehta/zeros-" + std::to_string(rank) + ".out";
     std::string _outfname = "zeros-" + std::to_string(rank) + ".out";
     const char *infname  = _infname.c_str();
     const char *outfname = _outfname.c_str();
@@ -108,7 +107,7 @@ void GrayScott::fileIO()
 
     tick = MPI_Wtime();
     tock = MPI_Wtime();
-    while(tock-tick < 8) {
+    while(tock-tick < fileio_time) {
         //check offset
         if (offset + bsize >= in_fsize) offset = 0;
 
@@ -131,6 +130,9 @@ void GrayScott::fileIO()
         tock = MPI_Wtime();
     }
 
+    remaining_time = 11-(tock-tick);
+    if (remaining_time < 0) std::cout << "Rank " << rank << " has no time to sleep" << std::endl;
+    usleep(1000000*remaining_time);
 }
 
 const std::vector<double> &GrayScott::u_ghost() const { return u; }

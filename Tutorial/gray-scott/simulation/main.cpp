@@ -9,6 +9,7 @@
 #include "../common/timer.hpp"
 #include "gray-scott.h"
 #include "writer.h"
+#include <stdlib.h>
 
 void print_io_settings(const adios2::IO &io)
 {
@@ -62,6 +63,7 @@ int main(int argc, char **argv)
     MPI_Comm_size(comm, &procs);
 
     double start_time, cur_time;
+    int fileio_time = std::stoi(argv[2]);
 
     if (argc < 2) {
         if (rank == 0) {
@@ -122,7 +124,7 @@ int main(int argc, char **argv)
         cur_time = MPI_Wtime() - start_time;
 
         for (int j = 0; j < settings.plotgap; j++) {
-            sim.iterate(&timer_compute, &timer_comm, &time_compute, &time_comm);
+            sim.iterate(&timer_compute, &timer_comm, &time_compute, &time_comm, fileio_time);
             i++;
         }
 
